@@ -7,6 +7,14 @@ import (
 )
 
 func ErrorHandler(ctx *fiber.Ctx, err error) error {
+	if e, ok := err.(*fiber.Error); ok {
+		return ctx.Status(e.Code).JSON(model.GeneralResponse{
+			Code:    e.Code,
+			Message: e.Message,
+			Data:    e.Message,
+		})
+	}
+
 	_, validationError := err.(ValidationError)
 	if validationError {
 		data := err.Error()

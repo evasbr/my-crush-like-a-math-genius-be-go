@@ -5,9 +5,12 @@ tmp_dir = "tmp"
 [build]
   args_bin = []
   bin = "./tmp/main.exe"
-  cmd = "go build -o ./tmp/main.exe main.go"
+  # If you want to disable automatic Swagger generation, comment out the line below and uncomment the next one:
+  # cmd = "go build -o ./tmp/main.exe main.go"
+  cmd = "cmd /c \"swag init && go build -o ./tmp/main.exe main.go\""
   delay = 1000
-  exclude_dir = ["assets", "tmp", "vendor", "testdata", "logs"]
+  # Excluded directories. "docs" is excluded to prevent an infinite reload loop when swag init runs.
+  exclude_dir = ["assets", "tmp", "vendor", "testdata", "logs", "docs"]
   exclude_file = []
   exclude_regex = ["_test.go"]
   exclude_unchanged = false

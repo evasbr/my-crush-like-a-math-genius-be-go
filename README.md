@@ -28,6 +28,7 @@ A production-ready, highly-optimized REST API boilerplate built in **Go** using 
 ├── configuration/   # Infrastructure setup (DB connections, Redis, Fiber, Env reader)
 ├── controller/      # HTTP Presentation layer (Route handlers, Body parsing)
 ├── db/migrations/   # SQL Schema migrations for database version control
+├── db/seed/         # SQL Seed scripts and programmatic seeder runner
 ├── entity/          # Core Domain entities (Database table mapping)
 ├── exception/       # Panic recovery and custom HTTP error handlers
 ├── middleware/      # Fiber middleware (JWT, Request ID, Logging)
@@ -67,7 +68,21 @@ To apply the database schema, run the migrations:
 migrate -database "postgres://postgres:postgres@localhost:5432/gofiber_clean_architecture?sslmode=disable" -path db/migrations up
 ```
 
-### 5. Running the Application (Development Mode with Hot Reload)
+### 5. Running Database Seeders
+To populate your database with initial seed data (e.g., default administrator account):
+```bash
+go run main.go -seed
+```
+To roll back the last applied seeder:
+```bash
+go run main.go -seed-rollback
+```
+To generate a new empty seeder file with a timestamp prefix:
+```bash
+go run main.go -seed-create="name_of_seeder"
+```
+
+### 6. Running the Application (Development Mode with Hot Reload)
 Run the application with hot reloading enabled via **Air**:
 ```bash
 air

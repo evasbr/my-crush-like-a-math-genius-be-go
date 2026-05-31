@@ -21,6 +21,26 @@
     "host": "localhost:9999",
     "basePath": "/",
     "paths": {
+        "/": {
+            "get": {
+                "description": "health check endpoint.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Health"
+                ],
+                "summary": "health check",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.GeneralResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/api/authentication": {
             "post": {
                 "description": "authenticate user.",
