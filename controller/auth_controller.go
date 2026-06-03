@@ -14,6 +14,7 @@ import (
 
 	"github.com/go-redis/redis/v9"
 	"github.com/gofiber/fiber/v2"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/sirupsen/logrus"
 )
 
@@ -246,23 +247,23 @@ func (controller *AuthController) Refresh(c *fiber.Ctx) error {
 // @Security JWT
 // @Router /api/v1/authentication/logout [post]
 func (controller *AuthController) Logout(c *fiber.Ctx) error {
-	accessTokenStr := c.Cookies("access_token")
-	refreshTokenStr := c.Cookies("refresh_token")
-
-	// Fallback to headers
-	if accessTokenStr == "" {
-		authHeader := c.Get("Authorization")
-		if authHeader != "" {
-			parts := strings.Split(authHeader, " ")
-			if len(parts) == 2 && strings.ToLower(parts[0]) == "bearer" {
-				accessTokenStr = parts[1]
-			} else if len(parts) == 1 {
-				accessTokenStr = parts[0]
-			}
-		}
+	userToken, ok := c.Locals("user").(*jwt.Token)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(model.GeneralResponse{
+			Code:    401,
+			Message: "Unauthorized",
+		})
 	}
+	claims, ok := userToken.Claims.(jwt.MapClaims)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(model.GeneralResponse{
+			Code:    401,
+			Message: "Unauthorized",
+		})
+	}
+	sidStr, _ := claims["sid"].(string)
 
-	err := controller.AuthService.Logout(c.UserContext(), accessTokenStr, refreshTokenStr)
+	err := controller.AuthService.Logout(c.UserContext(), sidStr)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(model.GeneralResponse{
 			Code:    500,

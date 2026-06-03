@@ -9,13 +9,14 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/google/uuid"
 )
 
 // GenerateToken generates a new JSON Web Token (JWT) for user authentication.
 // The token includes claims such as user_id, username, user roles,
-// user permissions (map[string]interface{}), and an expiration timestamp (exp)
-// fetched from the environment configurations (.env).
-func GenerateToken(userID string, username string, roles []string, permissions map[string]interface{}, config configuration.Config) string {
+// user permissions (map[string]interface{}), an expiration timestamp (exp)
+// fetched from the environment configurations (.env), and a session ID (sid).
+func GenerateToken(userID string, username string, roles []string, permissions map[string]interface{}, config configuration.Config, sid string) string {
 	jwtSecret := config.Get("JWT_SECRET_KEY")
 	
 	jwtExpiredMinutes := 15
@@ -31,6 +32,7 @@ func GenerateToken(userID string, username string, roles []string, permissions m
 		"username":    username,
 		"roles":       roles,
 		"permissions": permissions,
+		"sid":         sid,
 		"exp":         time.Now().Add(time.Minute * time.Duration(jwtExpiredMinutes)).Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -41,7 +43,8 @@ func GenerateToken(userID string, username string, roles []string, permissions m
 }
 
 // GenerateTokenPair generates both an access token and a refresh token.
-func GenerateTokenPair(userID string, username string, roles []string, permissions map[string]interface{}, config configuration.Config) (string, string) {
+// If the passed sid is empty, a new UUID session ID is generated.
+func GenerateTokenPair(userID string, username string, roles []string, permissions map[string]interface{}, config configuration.Config, sid string) (string, string, string) {
 	jwtSecret := config.Get("JWT_SECRET_KEY")
 
 	// Access token expiration (default 15 minutes)
@@ -60,6 +63,10 @@ func GenerateTokenPair(userID string, username string, roles []string, permissio
 		}
 	}
 
+	if sid == "" {
+		sid = uuid.New().String()
+	}
+
 	// 1. Generate Access Token
 	accessClaims := jwt.MapClaims{
 		"token_type":  "access",
@@ -67,6 +74,7 @@ func GenerateTokenPair(userID string, username string, roles []string, permissio
 		"username":    username,
 		"roles":       roles,
 		"permissions": permissions,
+		"sid":         sid,
 		"exp":         time.Now().Add(time.Minute * time.Duration(jwtExpiredMinutes)).Unix(),
 	}
 	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
@@ -78,11 +86,12 @@ func GenerateTokenPair(userID string, username string, roles []string, permissio
 		"token_type": "refresh",
 		"user_id":    userID,
 		"username":   username,
+		"sid":        sid,
 		"exp":        time.Now().Add(time.Minute * time.Duration(refreshExpiredMinutes)).Unix(),
 	}
 	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
 	refreshTokenSigned, err := refreshToken.SignedString([]byte(jwtSecret))
 	exception.PanicLogging(err)
 
-	return accessTokenSigned, refreshTokenSigned
+	return accessTokenSigned, refreshTokenSigned, sid
 }

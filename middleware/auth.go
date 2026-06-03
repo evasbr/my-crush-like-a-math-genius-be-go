@@ -6,8 +6,9 @@ import (
 
 	"evasbr/mclamg/configuration"
 	"evasbr/mclamg/model"
-	"github.com/gofiber/fiber/v2"
+
 	"github.com/go-redis/redis/v9"
+	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v4"
 )
 
@@ -80,7 +81,7 @@ func RequireAuth(allowed []string, config configuration.Config, redisClient *red
 		}
 
 		// 3. Check if token exists in Redis whitelist
-		exists, rErr := redisClient.Exists(c.Context(), "whitelist:token:"+tokenStr).Result()
+		exists, rErr := redisClient.Exists(c.Context(), "whitelist:access_token:"+tokenStr).Result()
 		if rErr != nil || exists == 0 {
 			return c.Status(fiber.StatusUnauthorized).JSON(model.GeneralResponse{
 				Code:    401,

@@ -7,15 +7,16 @@ import (
 	"evasbr/mclamg/entity"
 	"evasbr/mclamg/middleware"
 	"evasbr/mclamg/model"
-	"github.com/golang-jwt/jwt/v4"
-	"github.com/stretchr/testify/assert"
-	"golang.org/x/crypto/bcrypt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/golang-jwt/jwt/v4"
+	"github.com/stretchr/testify/assert"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func TestRegisterUser(t *testing.T) {
@@ -168,8 +169,8 @@ func TestAuthenticationCookiesAndLogout(t *testing.T) {
 	assert.True(t, refreshTokenCookie.HttpOnly)
 
 	// Verify whitelisted in Redis
-	existsAccess, _ := redisClient.Exists(context.Background(), "whitelist:token:"+accessTokenCookie.Value).Result()
-	existsRefresh, _ := redisClient.Exists(context.Background(), "whitelist:token:"+refreshTokenCookie.Value).Result()
+	existsAccess, _ := redisClient.Exists(context.Background(), "whitelist:access_token:"+accessTokenCookie.Value).Result()
+	existsRefresh, _ := redisClient.Exists(context.Background(), "whitelist:refresh_token:"+refreshTokenCookie.Value).Result()
 	assert.Equal(t, int64(1), existsAccess)
 	assert.Equal(t, int64(1), existsRefresh)
 
@@ -201,8 +202,8 @@ func TestAuthenticationCookiesAndLogout(t *testing.T) {
 	assert.True(t, logoutRefreshCleared)
 
 	// Verify deleted from Redis whitelist
-	existsAccessPost, _ := redisClient.Exists(context.Background(), "whitelist:token:"+accessTokenCookie.Value).Result()
-	existsRefreshPost, _ := redisClient.Exists(context.Background(), "whitelist:token:"+refreshTokenCookie.Value).Result()
+	existsAccessPost, _ := redisClient.Exists(context.Background(), "whitelist:access_token:"+accessTokenCookie.Value).Result()
+	existsRefreshPost, _ := redisClient.Exists(context.Background(), "whitelist:refresh_token:"+refreshTokenCookie.Value).Result()
 	assert.Equal(t, int64(0), existsAccessPost)
 	assert.Equal(t, int64(0), existsRefreshPost)
 
@@ -232,6 +233,7 @@ func TestAccessTokenExpirationAndRefreshWithRotation(t *testing.T) {
 		"username":    userResult.Username,
 		"roles":       []string{"ROLE_ADMIN"},
 		"permissions": map[string]interface{}{"PROFILE": []string{"read:profile"}},
+		"sid":         "test-session-id-rotation",
 		"exp":         time.Now().Add(-time.Hour).Unix(), // Expired
 	}
 	expiredToken := jwt.NewWithClaims(jwt.SigningMethodHS256, expiredAccessClaims)
@@ -242,14 +244,16 @@ func TestAccessTokenExpirationAndRefreshWithRotation(t *testing.T) {
 		"token_type": "refresh",
 		"user_id":    userResult.ID.String(),
 		"username":   userResult.Username,
+		"sid":        "test-session-id-rotation",
 		"exp":        time.Now().Add(time.Hour * 24).Unix(), // 24 hours
 	}
 	validRefreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, validRefreshClaims)
 	validRefreshTokenStr, _ := validRefreshToken.SignedString([]byte(jwtSecret))
 
 	// Whitelist both in Redis
-	redisClient.Set(context.Background(), "whitelist:token:"+expiredAccessTokenStr, "valid", time.Hour)
-	redisClient.Set(context.Background(), "whitelist:token:"+validRefreshTokenStr, "valid", time.Hour)
+	redisClient.Set(context.Background(), "whitelist:access_token:"+expiredAccessTokenStr, "valid", time.Hour)
+	redisClient.Set(context.Background(), "whitelist:refresh_token:"+validRefreshTokenStr, "valid", time.Hour)
+	redisClient.SAdd(context.Background(), "session_tokens:test-session-id-rotation", "whitelist:access_token:"+expiredAccessTokenStr, "whitelist:refresh_token:"+validRefreshTokenStr)
 
 	// 3. Request /users/me using expired token cookie -> Expect 401 with EXPIRED_ACCESS_TOKEN
 	request := httptest.NewRequest("GET", "/users/me", nil)
@@ -288,13 +292,13 @@ func TestAccessTokenExpirationAndRefreshWithRotation(t *testing.T) {
 	assert.NotEqual(t, validRefreshTokenStr, newRefreshTokenCookie.Value)
 
 	// Verify old refresh token is deleted from Redis
-	existsOldRefresh, _ := redisClient.Exists(context.Background(), "whitelist:token:"+validRefreshTokenStr).Result()
+	existsOldRefresh, _ := redisClient.Exists(context.Background(), "whitelist:refresh_token:"+validRefreshTokenStr).Result()
 	assert.Equal(t, int64(0), existsOldRefresh)
 
 	// Verify new tokens are whitelisted in Redis
-	existsNewAccess, _ := redisClient.Exists(context.Background(), "whitelist:token:"+newAccessTokenCookie.Value).Result()
+	existsNewAccess, _ := redisClient.Exists(context.Background(), "whitelist:access_token:"+newAccessTokenCookie.Value).Result()
 	assert.Equal(t, int64(1), existsNewAccess)
-	existsNewRefresh, _ := redisClient.Exists(context.Background(), "whitelist:token:"+newRefreshTokenCookie.Value).Result()
+	existsNewRefresh, _ := redisClient.Exists(context.Background(), "whitelist:refresh_token:"+newRefreshTokenCookie.Value).Result()
 	assert.Equal(t, int64(1), existsNewRefresh)
 
 	// 5. Query /users/me with new access token cookie -> Expect 200 OK
@@ -323,6 +327,7 @@ func TestAccessTokenExpirationAndRefreshNoRotation(t *testing.T) {
 		"username":    userResult.Username,
 		"roles":       []string{"ROLE_ADMIN"},
 		"permissions": map[string]interface{}{"PROFILE": []string{"read:profile"}},
+		"sid":         "test-session-id-no-rotation",
 		"exp":         time.Now().Add(-time.Hour).Unix(), // Expired
 	}
 	expiredToken := jwt.NewWithClaims(jwt.SigningMethodHS256, expiredAccessClaims)
@@ -333,14 +338,16 @@ func TestAccessTokenExpirationAndRefreshNoRotation(t *testing.T) {
 		"token_type": "refresh",
 		"user_id":    userResult.ID.String(),
 		"username":   userResult.Username,
+		"sid":        "test-session-id-no-rotation",
 		"exp":        time.Now().Add(time.Hour * 24 * 6).Unix(), // 6 days
 	}
 	validRefreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, validRefreshClaims)
 	validRefreshTokenStr, _ := validRefreshToken.SignedString([]byte(jwtSecret))
 
 	// Whitelist both in Redis
-	redisClient.Set(context.Background(), "whitelist:token:"+expiredAccessTokenStr, "valid", time.Hour)
-	redisClient.Set(context.Background(), "whitelist:token:"+validRefreshTokenStr, "valid", time.Hour)
+	redisClient.Set(context.Background(), "whitelist:access_token:"+expiredAccessTokenStr, "valid", time.Hour)
+	redisClient.Set(context.Background(), "whitelist:refresh_token:"+validRefreshTokenStr, "valid", time.Hour)
+	redisClient.SAdd(context.Background(), "session_tokens:test-session-id-no-rotation", "whitelist:access_token:"+expiredAccessTokenStr, "whitelist:refresh_token:"+validRefreshTokenStr)
 
 	// 3. Request /authentication/refresh to get new access token
 	refreshReq := httptest.NewRequest("POST", "/authentication/refresh", nil)
@@ -364,11 +371,11 @@ func TestAccessTokenExpirationAndRefreshNoRotation(t *testing.T) {
 	assert.Nil(t, newRefreshTokenCookie) // Should not rotate!
 
 	// Verify old refresh token is STILL whitelisted in Redis
-	existsOldRefresh, _ := redisClient.Exists(context.Background(), "whitelist:token:"+validRefreshTokenStr).Result()
+	existsOldRefresh, _ := redisClient.Exists(context.Background(), "whitelist:refresh_token:"+validRefreshTokenStr).Result()
 	assert.Equal(t, int64(1), existsOldRefresh)
 
 	// Verify new access token is whitelisted in Redis
-	existsNewAccess, _ := redisClient.Exists(context.Background(), "whitelist:token:"+newAccessTokenCookie.Value).Result()
+	existsNewAccess, _ := redisClient.Exists(context.Background(), "whitelist:access_token:"+newAccessTokenCookie.Value).Result()
 	assert.Equal(t, int64(1), existsNewAccess)
 }
 
@@ -466,6 +473,3 @@ func TestProtectedEndpointWithRefreshToken(t *testing.T) {
 	assert.Equal(t, 401, webResponse.Code)
 	assert.Equal(t, "Unauthorized", webResponse.Message)
 }
-
-
-

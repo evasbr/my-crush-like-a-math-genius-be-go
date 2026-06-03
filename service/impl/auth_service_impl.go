@@ -126,7 +126,7 @@ func (s *authServiceImpl) Login(ctx context.Context, req model.LoginRequest) (mo
 	}
 	permissions := common.MergePermissions(permissionsList)
 
-	accessToken, refreshToken := common.GenerateTokenPair(user.ID.String(), user.Username, roles, permissions, s.Config)
+	accessToken, refreshToken, sid := common.GenerateTokenPair(user.ID.String(), user.Username, roles, permissions, s.Config, "")
 
 	// Fetch expiration settings
 	jwtExpiredMinutes := 15
@@ -144,15 +144,23 @@ func (s *authServiceImpl) Login(ctx context.Context, req model.LoginRequest) (mo
 	}
 
 	// Store both tokens in Redis whitelist
-	err = s.Redis.Set(ctx, "whitelist:token:"+accessToken, "valid", time.Minute*time.Duration(jwtExpiredMinutes)).Err()
+	err = s.Redis.Set(ctx, "whitelist:access_token:"+accessToken, "valid", time.Minute*time.Duration(jwtExpiredMinutes)).Err()
 	if err != nil {
 		return model.LoginResponse{}, err
 	}
 
-	err = s.Redis.Set(ctx, "whitelist:token:"+refreshToken, "valid", time.Minute*time.Duration(refreshExpiredMinutes)).Err()
+	err = s.Redis.Set(ctx, "whitelist:refresh_token:"+refreshToken, "valid", time.Minute*time.Duration(refreshExpiredMinutes)).Err()
 	if err != nil {
 		return model.LoginResponse{}, err
 	}
+
+	// Track active tokens in session set for revocation on logout
+	sessionKey := "session_tokens:" + sid
+	err = s.Redis.SAdd(ctx, sessionKey, "whitelist:access_token:"+accessToken, "whitelist:refresh_token:"+refreshToken).Err()
+	if err != nil {
+		return model.LoginResponse{}, err
+	}
+	s.Redis.Expire(ctx, sessionKey, time.Minute*time.Duration(refreshExpiredMinutes))
 
 	var permissionsResponse map[string]interface{}
 	if s.Config.Get("AUTH_MODE") != "RBAC" {
@@ -194,7 +202,7 @@ func (s *authServiceImpl) Login(ctx context.Context, req model.LoginRequest) (mo
 
 func (s *authServiceImpl) RefreshToken(ctx context.Context, refreshTokenStr string) (model.RefreshTokenResponse, error) {
 	// Check if Refresh Token exists in Redis whitelist
-	exists, rErr := s.Redis.Exists(ctx, "whitelist:token:"+refreshTokenStr).Result()
+	exists, rErr := s.Redis.Exists(ctx, "whitelist:refresh_token:"+refreshTokenStr).Result()
 	if rErr != nil || exists == 0 {
 		return model.RefreshTokenResponse{}, errors.New("refresh token is revoked or not whitelisted")
 	}
@@ -224,6 +232,11 @@ func (s *authServiceImpl) RefreshToken(ctx context.Context, refreshTokenStr stri
 	userIDStr, ok := claims["user_id"].(string)
 	if !ok {
 		return model.RefreshTokenResponse{}, errors.New("missing user_id claim")
+	}
+
+	sidStr, ok := claims["sid"].(string)
+	if !ok {
+		return model.RefreshTokenResponse{}, errors.New("missing sid claim")
 	}
 
 	userID, err := uuid.Parse(userIDStr)
@@ -269,7 +282,7 @@ func (s *authServiceImpl) RefreshToken(ctx context.Context, refreshTokenStr stri
 
 	if remainingDuration < threshold {
 		// Rotate both Access Token and Refresh Token
-		newAccessToken, newRefreshToken := common.GenerateTokenPair(user.ID.String(), user.Username, roles, permissions, s.Config)
+		newAccessToken, newRefreshToken, _ := common.GenerateTokenPair(user.ID.String(), user.Username, roles, permissions, s.Config, sidStr)
 
 		refreshExpiredMinutes := 10080
 		if refExpStr := s.Config.Get("JWT_REFRESH_EXPIRE_MINUTES_COUNT"); refExpStr != "" {
@@ -278,18 +291,24 @@ func (s *authServiceImpl) RefreshToken(ctx context.Context, refreshTokenStr stri
 			}
 		}
 
-		err = s.Redis.Set(ctx, "whitelist:token:"+newAccessToken, "valid", time.Minute*time.Duration(jwtExpiredMinutes)).Err()
+		err = s.Redis.Set(ctx, "whitelist:access_token:"+newAccessToken, "valid", time.Minute*time.Duration(jwtExpiredMinutes)).Err()
 		if err != nil {
 			return model.RefreshTokenResponse{}, err
 		}
 
-		err = s.Redis.Set(ctx, "whitelist:token:"+newRefreshToken, "valid", time.Minute*time.Duration(refreshExpiredMinutes)).Err()
+		err = s.Redis.Set(ctx, "whitelist:refresh_token:"+newRefreshToken, "valid", time.Minute*time.Duration(refreshExpiredMinutes)).Err()
 		if err != nil {
 			return model.RefreshTokenResponse{}, err
 		}
 
 		// Revoke old refresh token
-		s.Redis.Del(ctx, "whitelist:token:"+refreshTokenStr)
+		s.Redis.Del(ctx, "whitelist:refresh_token:"+refreshTokenStr)
+
+		// Update session tracking set
+		sessionKey := "session_tokens:" + sidStr
+		s.Redis.SAdd(ctx, sessionKey, "whitelist:access_token:"+newAccessToken, "whitelist:refresh_token:"+newRefreshToken)
+		s.Redis.SRem(ctx, sessionKey, "whitelist:refresh_token:"+refreshTokenStr)
+		s.Redis.Expire(ctx, sessionKey, time.Minute*time.Duration(refreshExpiredMinutes))
 
 		return model.RefreshTokenResponse{
 			AccessToken:  newAccessToken,
@@ -299,11 +318,15 @@ func (s *authServiceImpl) RefreshToken(ctx context.Context, refreshTokenStr stri
 	}
 
 	// Generate only a new access token
-	newAccessToken := common.GenerateToken(user.ID.String(), user.Username, roles, permissions, s.Config)
-	err = s.Redis.Set(ctx, "whitelist:token:"+newAccessToken, "valid", time.Minute*time.Duration(jwtExpiredMinutes)).Err()
+	newAccessToken := common.GenerateToken(user.ID.String(), user.Username, roles, permissions, s.Config, sidStr)
+	err = s.Redis.Set(ctx, "whitelist:access_token:"+newAccessToken, "valid", time.Minute*time.Duration(jwtExpiredMinutes)).Err()
 	if err != nil {
 		return model.RefreshTokenResponse{}, err
 	}
+
+	// Track new access token in session tracking set
+	sessionKey := "session_tokens:" + sidStr
+	s.Redis.SAdd(ctx, sessionKey, "whitelist:access_token:"+newAccessToken)
 
 	return model.RefreshTokenResponse{
 		AccessToken: newAccessToken,
@@ -311,14 +334,24 @@ func (s *authServiceImpl) RefreshToken(ctx context.Context, refreshTokenStr stri
 	}, nil
 }
 
-func (s *authServiceImpl) Logout(ctx context.Context, accessTokenStr, refreshTokenStr string) error {
-	if accessTokenStr != "" {
-		s.Redis.Del(ctx, "whitelist:token:"+accessTokenStr)
+func (s *authServiceImpl) Logout(ctx context.Context, sidStr string) error {
+	if sidStr == "" {
+		return nil
 	}
-	if refreshTokenStr != "" {
-		s.Redis.Del(ctx, "whitelist:token:"+refreshTokenStr)
+
+	sessionKey := "session_tokens:" + sidStr
+	tokenKeys, err := s.Redis.SMembers(ctx, sessionKey).Result()
+	if err != nil {
+		return err
 	}
+
+	if len(tokenKeys) > 0 {
+		err = s.Redis.Del(ctx, tokenKeys...).Err()
+		if err != nil {
+			return err
+		}
+	}
+
+	s.Redis.Del(ctx, sessionKey)
 	return nil
 }
-
-
