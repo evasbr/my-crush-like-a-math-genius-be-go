@@ -23,26 +23,6 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/": {
-            "get": {
-                "description": "health check endpoint.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Health"
-                ],
-                "summary": "health check",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/model.GeneralResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/api/v1/authentication/login": {
             "post": {
                 "description": "login a user.",

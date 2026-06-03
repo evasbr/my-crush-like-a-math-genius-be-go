@@ -1,7 +1,6 @@
 package configuration
 
 import (
-	"evasbr/mclamg/exception"
 	"github.com/joho/godotenv"
 	"os"
 )
@@ -18,7 +17,6 @@ func (config *configImpl) Get(key string) string {
 }
 
 func New(filenames ...string) Config {
-	err := godotenv.Load(filenames...)
-	exception.PanicLogging(err)
+	_ = godotenv.Load(filenames...)
 	return &configImpl{}
 }

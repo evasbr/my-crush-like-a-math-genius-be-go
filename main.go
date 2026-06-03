@@ -2,16 +2,11 @@ package main
 
 import (
 	"context"
-	"evasbr/mclamg/client/restclient"
+	"evasbr/mclamg/app"
 	"evasbr/mclamg/common"
 	"evasbr/mclamg/configuration"
-	"evasbr/mclamg/controller"
 	"evasbr/mclamg/db/seed"
 	_ "evasbr/mclamg/docs"
-	"evasbr/mclamg/middleware"
-	"evasbr/mclamg/model"
-	repository "evasbr/mclamg/repository/impl"
-	service "evasbr/mclamg/service/impl"
 	"flag"
 	"fmt"
 	"log"
@@ -21,12 +16,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"syscall"
-
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/recover"
-	"github.com/gofiber/fiber/v2/middleware/requestid"
-	"github.com/gofiber/swagger"
 )
 
 // @title Go Fiber Clean Architecture
@@ -114,57 +103,11 @@ func main() {
 
 	redis := configuration.NewRedis(config)
 
-	//repository
-	productRepository := repository.NewProductRepositoryImpl(database)
-	transactionRepository := repository.NewTransactionRepositoryImpl(database)
-	transactionDetailRepository := repository.NewTransactionDetailRepositoryImpl(database)
-	userRepository := repository.NewUserRepositoryImpl(database)
-	authRepository := repository.NewAuthRepositoryImpl(database)
-
-	//rest client
-	httpBinRestClient := restclient.NewHttpBinRestClient()
-
-	//service
-	productService := service.NewProductServiceImpl(&productRepository, redis)
-	transactionService := service.NewTransactionServiceImpl(&transactionRepository)
-	transactionDetailService := service.NewTransactionDetailServiceImpl(&transactionDetailRepository)
-	userService := service.NewUserServiceImpl(&userRepository)
-	authService := service.NewAuthServiceImpl(&userRepository, &authRepository, redis, config)
-	httpBinService := service.NewHttpBinServiceImpl(&httpBinRestClient)
-
-	//controller
-	productController := controller.NewProductController(&productService, config, redis)
-	transactionController := controller.NewTransactionController(&transactionService, config, redis)
-	transactionDetailController := controller.NewTransactionDetailController(&transactionDetailService, config, redis)
-	userController := controller.NewUserController(&userService, config, redis)
-	authController := controller.NewAuthController(&authService, config, redis)
-	httpBinController := controller.NewHttpBinController(&httpBinService)
-
-	//setup fiber
-	app := fiber.New(configuration.NewFiberConfiguration())
-	api := app.Group("/api/v1")
-	app.Use(recover.New())
-	app.Use(cors.New())
-	app.Use(requestid.New())
-	app.Use(middleware.RequestID()) // Mount Request ID middleware and UserContext propagator
-
-	//routing
-	productController.Route(api)
-	transactionController.Route(api)
-	transactionDetailController.Route(api)
-	userController.Route(api)
-	authController.Route(api)
-	httpBinController.Route(api)
-
-	//swagger
-	app.Get("/swagger/*", swagger.HandlerDefault)
-
-	// Health check
-	app.Get("/", HealthCheck)
+	appInstance := app.BuildApp(config, database, redis)
 
 	//start app in a goroutine
 	go func() {
-		err := app.Listen(config.Get("SERVER.PORT"))
+		err := appInstance.Listen(config.Get("SERVER.PORT"))
 		if err != nil {
 			common.Logger(context.Background(), "Main").Infof("Server startup error: %v", err)
 		}
@@ -178,26 +121,14 @@ func main() {
 	common.Logger(context.Background(), "Main").Info("Shutting down server gracefully...")
 
 	// Attempt graceful shutdown
-	if err := app.Shutdown(); err != nil {
+	if err := appInstance.Shutdown(); err != nil {
 		common.Logger(context.Background(), "Main").Errorf("Server forced to shutdown: %v", err)
 	}
 
 	common.Logger(context.Background(), "Main").Info("Server exited")
 }
 
-// HealthCheck func returns application health status.
-// @Description health check endpoint.
-// @Summary health check
-// @Tags Health
-// @Produce json
-// @Success 200 {object} model.GeneralResponse
-// @Router / [get]
-func HealthCheck(c *fiber.Ctx) error {
-	return c.Status(fiber.StatusOK).JSON(model.GeneralResponse{
-		Code:    200,
-		Message: "Hello world",
-	})
-}
+
 
 func runMigrateCommand(config configuration.Config, action string, args ...string) error {
 	username := config.Get("DATASOURCE_USERNAME")

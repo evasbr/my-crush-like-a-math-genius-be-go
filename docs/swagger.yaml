@@ -206,19 +206,6 @@ info:
   title: Go Fiber Clean Architecture
   version: 1.0.0
 paths:
-  /:
-    get:
-      description: health check endpoint.
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/model.GeneralResponse'
-      summary: health check
-      tags:
-      - Health
   /api/v1/authentication/login:
     post:
       consumes:
