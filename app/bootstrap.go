@@ -9,6 +9,7 @@ import (
 	"evasbr/mclamg/docs"
 	repository "evasbr/mclamg/repository/impl"
 	service "evasbr/mclamg/service/impl"
+	"os"
 
 	"github.com/go-redis/redis/v9"
 	"github.com/gofiber/fiber/v2"
@@ -65,6 +66,11 @@ func BuildApp(config configuration.Config, database *gorm.DB, redis *redis.Clien
 
 	//swagger
 	docs.SwaggerInfo.Host = ""
+	if os.Getenv("VERCEL") == "1" {
+		docs.SwaggerInfo.Schemes = []string{"https"}
+	} else {
+		docs.SwaggerInfo.Schemes = []string{"http"}
+	}
 	app.Get("/swagger/*", swagger.HandlerDefault)
 
 	// Health check
