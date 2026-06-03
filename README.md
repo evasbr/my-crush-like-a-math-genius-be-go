@@ -63,7 +63,19 @@ docker compose up -d
 ```
 
 ### 4. Running Database Migrations
-To apply the database schema, run the migrations:
+To apply the database schema, run the migrations automatically using the application CLI (reads database configuration directly from `.env`):
+```bash
+# Run all pending migrations
+go run main.go -migrate
+
+# Roll back the last migration step
+go run main.go -migrate-rollback
+
+# Roll back all migrations
+go run main.go -migrate-rollback-all
+```
+
+Alternatively, you can run migrations manually using the `golang-migrate` CLI tool:
 ```bash
 migrate -database "postgres://postgres:postgres@localhost:5432/gofiber_clean_architecture?sslmode=disable" -path db/migrations up
 ```

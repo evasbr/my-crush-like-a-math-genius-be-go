@@ -7,25 +7,29 @@ import (
 	"evasbr/mclamg/model"
 	"evasbr/mclamg/service"
 	"github.com/gofiber/fiber/v2"
+	"github.com/go-redis/redis/v9"
 	"github.com/sirupsen/logrus"
 )
 
 type TransactionDetailController struct {
 	service.TransactionDetailService
 	configuration.Config
+	Redis *redis.Client
 	log *logrus.Entry
 }
 
-func NewTransactionDetailController(transactionDetailService *service.TransactionDetailService, config configuration.Config) *TransactionDetailController {
+func NewTransactionDetailController(transactionDetailService *service.TransactionDetailService, config configuration.Config, redis *redis.Client) *TransactionDetailController {
 	return &TransactionDetailController{
 		TransactionDetailService: *transactionDetailService,
 		Config:                   config,
+		Redis:                    redis,
 		log:                      common.Log.WithField("scope", "TransactionDetailController"),
 	}
 }
 
-func (controller TransactionDetailController) Route(app *fiber.App) {
-	app.Get("/v1/api/transaction-detail/:id", middleware.AuthenticateJWT("ROLE_USER", controller.Config), controller.FindById)
+func (controller TransactionDetailController) Route(router fiber.Router) {
+	detail := router.Group("/transaction-detail")
+	detail.Get("/:id", middleware.RequireAuth([]string{"ROLE_USER", "read:transaction"}, controller.Config, controller.Redis), controller.FindById)
 }
 
 // FindById func gets one exists transaction detail.

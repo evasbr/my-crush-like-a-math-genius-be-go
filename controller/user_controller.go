@@ -3,61 +3,179 @@ package controller
 import (
 	"evasbr/mclamg/common"
 	"evasbr/mclamg/configuration"
-	"evasbr/mclamg/exception"
+	"evasbr/mclamg/entity"
+	"evasbr/mclamg/middleware"
 	"evasbr/mclamg/model"
 	"evasbr/mclamg/service"
+
+	"github.com/go-redis/redis/v9"
 	"github.com/gofiber/fiber/v2"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/sirupsen/logrus"
 )
 
-func NewUserController(userService *service.UserService, config configuration.Config) *UserController {
+type UserController struct {
+	UserService service.UserService
+	Config      configuration.Config
+	Redis       *redis.Client
+	log         *logrus.Entry
+}
+
+func NewUserController(userService *service.UserService, config configuration.Config, redis *redis.Client) *UserController {
 	return &UserController{
 		UserService: *userService,
 		Config:      config,
+		Redis:       redis,
 		log:         common.Log.WithField("scope", "UserController"),
 	}
 }
 
-type UserController struct {
-	service.UserService
-	configuration.Config
-	log *logrus.Entry
+func (controller *UserController) Route(router fiber.Router) {
+	users := router.Group("/users")
+	users.Get("/me", middleware.RequireAuth([]string{}, controller.Config, controller.Redis), controller.GetMyProfile)
 }
 
-func (controller UserController) Route(app *fiber.App) {
-	app.Post("/v1/api/authentication", controller.Authentication)
-}
-
-// Authentication func Authenticate user.
-// @Description authenticate user.
-// @Summary authenticate user
-// @Tags Authenticate user
+// GetMyProfile func gets current user profile.
+// @Description gets current user profile based on JWT claim.
+// @Summary get profile
+// @Tags User
 // @Accept json
 // @Produce json
-// @Param request body model.UserModel true "Request Body"
-// @Success 200 {object} model.GeneralResponse
-// @Router /v1/api/authentication [post]
-func (controller UserController) Authentication(c *fiber.Ctx) error {
-	var request model.UserModel
-	err := c.BodyParser(&request)
-	exception.PanicLogging(err)
-
-	result := controller.UserService.Authentication(c.UserContext(), request)
-	var userRoles []map[string]interface{}
-	for _, userRole := range result.UserRoles {
-		userRoles = append(userRoles, map[string]interface{}{
-			"role": userRole.Role,
+// @Success 200 {object} model.GeneralResponse{data=model.UserProfileResponse}
+// @Security JWT
+// @Router /api/v1/users/me [get]
+func (controller *UserController) GetMyProfile(c *fiber.Ctx) error {
+	userToken, ok := c.Locals("user").(*jwt.Token)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(model.GeneralResponse{
+			Code:    401,
+			Message: "Unauthorized",
+			Data:    "Missing or invalid JWT token in context",
 		})
 	}
-	tokenJwtResult := common.GenerateToken(result.Username, userRoles, controller.Config)
-	resultWithToken := map[string]interface{}{
-		"token":    tokenJwtResult,
-		"username": result.Username,
-		"role":     userRoles,
+
+	claims, ok := userToken.Claims.(jwt.MapClaims)
+	if !ok {
+		return c.Status(fiber.StatusForbidden).JSON(model.GeneralResponse{
+			Code:    403,
+			Message: "Forbidden",
+			Data:    "Invalid token claims",
+		})
 	}
+
+	userIDStr, ok := claims["user_id"].(string)
+	if !ok {
+		return c.Status(fiber.StatusForbidden).JSON(model.GeneralResponse{
+			Code:    403,
+			Message: "Forbidden",
+			Data:    "Missing user_id claim in JWT",
+		})
+	}
+
+	profile, err := controller.UserService.FindByID(c.UserContext(), userIDStr)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(model.GeneralResponse{
+			Code:    404,
+			Message: "Not Found",
+			Data:    err.Error(),
+		})
+	}
+
+	var lastName string
+	if profile.LastName != nil {
+		lastName = *profile.LastName
+	}
+	var gender string
+	if profile.Gender != nil {
+		gender = *profile.Gender
+	}
+	var profilePictureURL string
+	if profile.ProfilePictureURL != nil {
+		profilePictureURL = *profile.ProfilePictureURL
+	}
+
+	var roles []string
+	for _, userRole := range profile.UserRoles {
+		roles = append(roles, userRole.Role.Name)
+	}
+
+	var permissionsResponse map[string]interface{}
+	if controller.Config.Get("AUTH_MODE") != "RBAC" {
+		permissionsResponse = mergeUserPermissions(profile.UserRoles)
+	}
+
+	username := profile.Email
+	for _, a := range profile.Authentications {
+		if a.Method == string(entity.MethodLocalUsername) {
+			username = a.ProviderUserID
+			break
+		}
+	}
+
+	response := model.UserProfileResponse{
+		Id:                profile.ID.String(),
+		Email:             profile.Email,
+		Username:          username,
+		FirstName:         profile.FirstName,
+		LastName:          lastName,
+		Gender:            gender,
+		ProfilePictureURL: profilePictureURL,
+		Status:            profile.Status,
+		Roles:             roles,
+		Permissions:       permissionsResponse,
+	}
+
 	return c.Status(fiber.StatusOK).JSON(model.GeneralResponse{
 		Code:    200,
 		Message: "Success",
-		Data:    resultWithToken,
+		Data:    response,
 	})
+}
+
+func mergeUserPermissions(userRoles []entity.UserRole) map[string]interface{} {
+	merged := make(map[string]interface{})
+	for _, ur := range userRoles {
+		for k, v := range ur.Role.Permissions {
+			if k == "FULLACCESS" {
+				if valBool, ok := v.(bool); ok && valBool {
+					merged["FULLACCESS"] = true
+				}
+				continue
+			}
+
+			var newPerms []string
+			if slice, ok := v.([]interface{}); ok {
+				for _, item := range slice {
+					if itemStr, ok := item.(string); ok {
+						newPerms = append(newPerms, itemStr)
+					}
+				}
+			} else if sliceStr, ok := v.([]string); ok {
+				newPerms = append(newPerms, sliceStr...)
+			}
+
+			if len(newPerms) > 0 {
+				if existing, exists := merged[k]; exists {
+					if existingSlice, ok := existing.([]string); ok {
+						// Merge without duplicates
+						mergedMap := make(map[string]bool)
+						for _, p := range existingSlice {
+							mergedMap[p] = true
+						}
+						for _, p := range newPerms {
+							mergedMap[p] = true
+						}
+						var finalSlice []string
+						for p := range mergedMap {
+							finalSlice = append(finalSlice, p)
+						}
+						merged[k] = finalSlice
+					}
+				} else {
+					merged[k] = newPerms
+				}
+			}
+		}
+	}
+	return merged
 }

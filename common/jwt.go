@@ -5,36 +5,79 @@ package common
 import (
 	"evasbr/mclamg/configuration"
 	"evasbr/mclamg/exception"
-	"github.com/golang-jwt/jwt/v4"
 	"strconv"
 	"time"
+
+	"github.com/golang-jwt/jwt/v4"
 )
 
 // GenerateToken generates a new JSON Web Token (JWT) for user authentication.
-// The token includes claims such as username, user roles, and an expiration timestamp (exp)
+// The token includes claims such as user_id, username, user roles,
+// user permissions (map[string]interface{}), and an expiration timestamp (exp)
 // fetched from the environment configurations (.env).
-//
-// Service / Controller Layer Usage Example:
-//
-//	func (s *authService) Login(ctx context.Context, req model.LoginRequest) string {
-//	    // ... verify credentials ...
-//	    roles := []map[string]interface{}{{"role": "ROLE_USER"}}
-//	    token := common.GenerateToken(req.Username, roles, s.Config)
-//	    return token
-//	}
-func GenerateToken(username string, roles []map[string]interface{}, config configuration.Config) string {
+func GenerateToken(userID string, username string, roles []string, permissions map[string]interface{}, config configuration.Config) string {
 	jwtSecret := config.Get("JWT_SECRET_KEY")
 	jwtExpired, err := strconv.Atoi(config.Get("JWT_EXPIRE_MINUTES_COUNT"))
 	exception.PanicLogging(err)
 
 	claims := jwt.MapClaims{
-		"username": username,
-		"roles":    roles,
-		"exp":      time.Now().Add(time.Minute * time.Duration(jwtExpired)).Unix(),
+		"token_type":  "access",
+		"user_id":     userID,
+		"username":    username,
+		"roles":       roles,
+		"permissions": permissions,
+		"exp":         time.Now().Add(time.Minute * time.Duration(jwtExpired)).Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenSigned, err := token.SignedString([]byte(jwtSecret))
 	exception.PanicLogging(err)
 
 	return tokenSigned
+}
+
+// GenerateTokenPair generates both an access token and a refresh token.
+func GenerateTokenPair(userID string, username string, roles []string, permissions map[string]interface{}, config configuration.Config) (string, string) {
+	jwtSecret := config.Get("JWT_SECRET_KEY")
+
+	// Access token expiration (default 15 minutes)
+	jwtExpiredMinutes := 15
+	if expStr := config.Get("JWT_EXPIRE_MINUTES_COUNT"); expStr != "" {
+		if val, err := strconv.Atoi(expStr); err == nil {
+			jwtExpiredMinutes = val
+		}
+	}
+
+	// Refresh token expiration (default 7 days / 10080 minutes)
+	refreshExpiredMinutes := 10080
+	if refExpStr := config.Get("JWT_REFRESH_EXPIRE_MINUTES_COUNT"); refExpStr != "" {
+		if val, err := strconv.Atoi(refExpStr); err == nil {
+			refreshExpiredMinutes = val
+		}
+	}
+
+	// 1. Generate Access Token
+	accessClaims := jwt.MapClaims{
+		"token_type":  "access",
+		"user_id":     userID,
+		"username":    username,
+		"roles":       roles,
+		"permissions": permissions,
+		"exp":         time.Now().Add(time.Minute * time.Duration(jwtExpiredMinutes)).Unix(),
+	}
+	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
+	accessTokenSigned, err := accessToken.SignedString([]byte(jwtSecret))
+	exception.PanicLogging(err)
+
+	// 2. Generate Refresh Token
+	refreshClaims := jwt.MapClaims{
+		"token_type": "refresh",
+		"user_id":    userID,
+		"username":   username,
+		"exp":        time.Now().Add(time.Minute * time.Duration(refreshExpiredMinutes)).Unix(),
+	}
+	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
+	refreshTokenSigned, err := refreshToken.SignedString([]byte(jwtSecret))
+	exception.PanicLogging(err)
+
+	return accessTokenSigned, refreshTokenSigned
 }

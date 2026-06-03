@@ -9,5 +9,5 @@ type Transaction struct {
 }
 
 func (Transaction) TableName() string {
-	return "tb_transaction"
+	return "transactions"
 }

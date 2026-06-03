@@ -11,5 +11,5 @@ type Product struct {
 }
 
 func (Product) TableName() string {
-	return "tb_product"
+	return "products"
 }

@@ -25,16 +25,16 @@ func TestCreate(t *testing.T) {
 	request := httptest.NewRequest("POST", "/v1/api/product", bytes.NewBuffer(requestBody))
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Accept", "application/json")
-	request.Header.Set("Authorization", "Bearer "+tokenResponse["token"].(string))
+	request.Header.Set("Authorization", "Bearer "+tokenResponse["access_token"].(string))
 
 	response, _ := appTest.Test(request)
 
-	assert.Equal(t, 200, response.StatusCode)
+	assert.Equal(t, 201, response.StatusCode)
 	responseBody, _ := io.ReadAll(response.Body)
 
 	webResponse := model.GeneralResponse{}
 	_ = json.Unmarshal(responseBody, &webResponse)
-	assert.Equal(t, 200, webResponse.Code)
+	assert.Equal(t, 201, webResponse.Code)
 	assert.Equal(t, "Success", webResponse.Message)
 
 	jsonData, _ := json.Marshal(webResponse.Data)
