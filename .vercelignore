@@ -1,0 +1,8 @@
+main.go
+.env
+.env.test
+.air.toml
+Dockerfile
+docker-compose.yml
+tmp/
+logs/
