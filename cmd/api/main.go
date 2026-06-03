@@ -8,6 +8,7 @@ import (
 
 	"evasbr/mclamg/app"
 	"evasbr/mclamg/configuration"
+	_ "evasbr/mclamg/docs"
 
 	"github.com/go-redis/redis/v9"
 	"github.com/gofiber/adaptor/v2"
