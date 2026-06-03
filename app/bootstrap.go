@@ -6,6 +6,7 @@ import (
 	"evasbr/mclamg/controller"
 	"evasbr/mclamg/middleware"
 	"evasbr/mclamg/model"
+	"evasbr/mclamg/docs"
 	repository "evasbr/mclamg/repository/impl"
 	service "evasbr/mclamg/service/impl"
 
@@ -63,6 +64,7 @@ func BuildApp(config configuration.Config, database *gorm.DB, redis *redis.Clien
 	httpBinController.Route(api)
 
 	//swagger
+	docs.SwaggerInfo.Host = ""
 	app.Get("/swagger/*", swagger.HandlerDefault)
 
 	// Health check
