@@ -8,7 +8,7 @@ import (
 	"evasbr/mclamg/configuration"
 
 	"github.com/go-redis/redis/v9"
-	fiberadaptor "github.com/gofiber/adaptor/v2"
+	"github.com/gofiber/adaptor/v2"
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
 )
@@ -30,8 +30,14 @@ func initApp() {
 	})
 }
 
-// Handler is the entrypoint for Vercel Serverless Functions.
 func Handler(w http.ResponseWriter, r *http.Request) {
+	// This is needed to set the proper request path in `fiber.Ctx`
+	r.RequestURI = r.URL.String()
+
+	handler().ServeHTTP(w, r)
+}
+
+func handler() http.HandlerFunc {
 	initApp()
-	fiberadaptor.FiberApp(fiberApp)(w, r)
+	return adaptor.FiberApp(fiberApp)
 }
