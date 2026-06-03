@@ -17,8 +17,13 @@ import (
 // fetched from the environment configurations (.env).
 func GenerateToken(userID string, username string, roles []string, permissions map[string]interface{}, config configuration.Config) string {
 	jwtSecret := config.Get("JWT_SECRET_KEY")
-	jwtExpired, err := strconv.Atoi(config.Get("JWT_EXPIRE_MINUTES_COUNT"))
-	exception.PanicLogging(err)
+	
+	jwtExpiredMinutes := 15
+	if expStr := config.Get("JWT_EXPIRE_MINUTES_COUNT"); expStr != "" {
+		if val, err := strconv.Atoi(expStr); err == nil {
+			jwtExpiredMinutes = val
+		}
+	}
 
 	claims := jwt.MapClaims{
 		"token_type":  "access",
@@ -26,7 +31,7 @@ func GenerateToken(userID string, username string, roles []string, permissions m
 		"username":    username,
 		"roles":       roles,
 		"permissions": permissions,
-		"exp":         time.Now().Add(time.Minute * time.Duration(jwtExpired)).Unix(),
+		"exp":         time.Now().Add(time.Minute * time.Duration(jwtExpiredMinutes)).Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenSigned, err := token.SignedString([]byte(jwtSecret))

@@ -101,7 +101,11 @@ func (controller *UserController) GetMyProfile(c *fiber.Ctx) error {
 
 	var permissionsResponse map[string]interface{}
 	if controller.Config.Get("AUTH_MODE") != "RBAC" {
-		permissionsResponse = mergeUserPermissions(profile.UserRoles)
+		var permissionsList []map[string]interface{}
+		for _, userRole := range profile.UserRoles {
+			permissionsList = append(permissionsList, userRole.Role.Permissions)
+		}
+		permissionsResponse = common.MergePermissions(permissionsList)
 	}
 
 	username := profile.Email
@@ -132,50 +136,4 @@ func (controller *UserController) GetMyProfile(c *fiber.Ctx) error {
 	})
 }
 
-func mergeUserPermissions(userRoles []entity.UserRole) map[string]interface{} {
-	merged := make(map[string]interface{})
-	for _, ur := range userRoles {
-		for k, v := range ur.Role.Permissions {
-			if k == "FULLACCESS" {
-				if valBool, ok := v.(bool); ok && valBool {
-					merged["FULLACCESS"] = true
-				}
-				continue
-			}
 
-			var newPerms []string
-			if slice, ok := v.([]interface{}); ok {
-				for _, item := range slice {
-					if itemStr, ok := item.(string); ok {
-						newPerms = append(newPerms, itemStr)
-					}
-				}
-			} else if sliceStr, ok := v.([]string); ok {
-				newPerms = append(newPerms, sliceStr...)
-			}
-
-			if len(newPerms) > 0 {
-				if existing, exists := merged[k]; exists {
-					if existingSlice, ok := existing.([]string); ok {
-						// Merge without duplicates
-						mergedMap := make(map[string]bool)
-						for _, p := range existingSlice {
-							mergedMap[p] = true
-						}
-						for _, p := range newPerms {
-							mergedMap[p] = true
-						}
-						var finalSlice []string
-						for p := range mergedMap {
-							finalSlice = append(finalSlice, p)
-						}
-						merged[k] = finalSlice
-					}
-				} else {
-					merged[k] = newPerms
-				}
-			}
-		}
-	}
-	return merged
-}

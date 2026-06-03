@@ -371,3 +371,101 @@ func TestAccessTokenExpirationAndRefreshNoRotation(t *testing.T) {
 	existsNewAccess, _ := redisClient.Exists(context.Background(), "whitelist:token:"+newAccessTokenCookie.Value).Result()
 	assert.Equal(t, int64(1), existsNewAccess)
 }
+
+func TestRegisterUserValidationError(t *testing.T) {
+	deleteAllUsers()
+
+	// Short password and invalid email
+	lastName := "User"
+	gender := "male"
+	registerRequest := model.RegisterRequest{
+		Username:  "nu", // too short (min=3)
+		Email:     "invalid-email",
+		FirstName: "New",
+		LastName:  &lastName,
+		Gender:    &gender,
+		Password:  "123", // too short (min=6)
+	}
+	body, _ := json.Marshal(registerRequest)
+
+	request := httptest.NewRequest("POST", "/authentication/register", bytes.NewBuffer(body))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Accept", "application/json")
+
+	response, _ := appTest.Test(request)
+	assert.Equal(t, 400, response.StatusCode)
+
+	responseBody, _ := io.ReadAll(response.Body)
+	var webResponse model.GeneralResponse
+	_ = json.Unmarshal(responseBody, &webResponse)
+
+	assert.Equal(t, 400, webResponse.Code)
+	assert.Equal(t, "Bad Request", webResponse.Message)
+}
+
+func TestLoginValidationError(t *testing.T) {
+	loginRequest := model.LoginRequest{
+		Identifier: "", // empty
+		Password:   "", // empty
+	}
+	body, _ := json.Marshal(loginRequest)
+
+	request := httptest.NewRequest("POST", "/authentication/login", bytes.NewBuffer(body))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Accept", "application/json")
+
+	response, _ := appTest.Test(request)
+	assert.Equal(t, 400, response.StatusCode)
+
+	responseBody, _ := io.ReadAll(response.Body)
+	var webResponse model.GeneralResponse
+	_ = json.Unmarshal(responseBody, &webResponse)
+
+	assert.Equal(t, 400, webResponse.Code)
+	assert.Equal(t, "Bad Request", webResponse.Message)
+}
+
+func TestRefreshTokenWithAccessToken(t *testing.T) {
+	// 1. Setup user and login
+	tokenResponse := authenticationCreate()
+	accessToken := tokenResponse["access_token"].(string)
+
+	// 2. Try to refresh using access token
+	refreshReq := httptest.NewRequest("POST", "/authentication/refresh", nil)
+	refreshReq.Header.Set("Authorization", "Bearer "+accessToken)
+	refreshReq.Header.Set("Accept", "application/json")
+	refreshResp, _ := appTest.Test(refreshReq)
+
+	// Expect unauthorized or bad request because access token is not a refresh token
+	assert.Equal(t, 401, refreshResp.StatusCode)
+
+	responseBody, _ := io.ReadAll(refreshResp.Body)
+	var webResponse model.GeneralResponse
+	_ = json.Unmarshal(responseBody, &webResponse)
+	assert.Equal(t, 401, webResponse.Code)
+	assert.Equal(t, "Unauthorized", webResponse.Message)
+}
+
+func TestProtectedEndpointWithRefreshToken(t *testing.T) {
+	// 1. Setup user and login
+	tokenResponse := authenticationCreate()
+	refreshToken := tokenResponse["refresh_token"].(string)
+
+	// 2. Try to access logout using refresh token
+	logoutReq := httptest.NewRequest("POST", "/authentication/logout", nil)
+	logoutReq.Header.Set("Authorization", "Bearer "+refreshToken)
+	logoutReq.Header.Set("Accept", "application/json")
+	logoutResp, _ := appTest.Test(logoutReq)
+
+	// Expect unauthorized because refresh token is not allowed in protected route
+	assert.Equal(t, 401, logoutResp.StatusCode)
+
+	responseBody, _ := io.ReadAll(logoutResp.Body)
+	var webResponse model.GeneralResponse
+	_ = json.Unmarshal(responseBody, &webResponse)
+	assert.Equal(t, 401, webResponse.Code)
+	assert.Equal(t, "Unauthorized", webResponse.Message)
+}
+
+
+

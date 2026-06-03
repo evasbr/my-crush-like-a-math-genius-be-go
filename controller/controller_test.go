@@ -90,7 +90,7 @@ func deleteAllUsers() {
 	database.Exec("DELETE FROM users")
 	database.Exec("DELETE FROM roles")
 
-	database.Exec("INSERT INTO roles (id, name, permissions) VALUES ('11b38d48-8605-4e1f-8630-2c2120fbd682', 'SUPER_ADMIN', '{\"fullaccess\": true}')")
+	database.Exec("INSERT INTO roles (id, name, permissions) VALUES ('11b38d48-8605-4e1f-8630-2c2120fbd682', 'SUPER_ADMIN', '{\"FULLACCESS\": true}')")
 	database.Exec("INSERT INTO roles (id, name, permissions) VALUES ('d4df0794-22e8-4a30-9039-bbcd76447b56', 'SUB_ADMIN', '{\"product\": [\"read:product\", \"write:product\"]}')")
 	database.Exec("INSERT INTO roles (id, name, permissions) VALUES ('22b38d48-8605-4e1f-8630-2c2120fbd682', 'ROLE_ADMIN', '{\"profile\": [\"read:profile\"]}')")
 	database.Exec("INSERT INTO roles (id, name, permissions) VALUES ('32b38d48-8605-4e1f-8630-2c2120fbd682', 'ROLE_USER', '{\"profile\": [\"read:profile\"]}')")

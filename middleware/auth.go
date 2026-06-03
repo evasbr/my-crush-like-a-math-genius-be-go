@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"strings"
 
 	"evasbr/mclamg/configuration"
@@ -48,6 +49,9 @@ func RequireAuth(allowed []string, config configuration.Config, redisClient *red
 
 		// 2. Validate token (check expiration and signature)
 		token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			}
 			return []byte(jwtSecret), nil
 		})
 
@@ -94,6 +98,15 @@ func RequireAuth(allowed []string, config configuration.Config, redisClient *red
 				Code:    403,
 				Message: "Forbidden",
 				Data:    "Invalid token claims",
+			})
+		}
+
+		tokenType, ok := claims["token_type"].(string)
+		if !ok || tokenType != "access" {
+			return c.Status(fiber.StatusUnauthorized).JSON(model.GeneralResponse{
+				Code:    401,
+				Message: "Unauthorized",
+				Data:    "Invalid Token Type",
 			})
 		}
 
@@ -192,11 +205,18 @@ func RequireAuth(allowed []string, config configuration.Config, redisClient *red
 
 // hasPermission checks if user permissions contain FULLACCESS: true or at least one of the allowedPermissions.
 func hasPermission(userPerms map[string]interface{}, allowedPermissions []string) bool {
-	// Check FULLACCESS
-	if fa, ok := userPerms["FULLACCESS"]; ok {
-		if faBool, ok := fa.(bool); ok && faBool {
-			return true
+	// Check FULLACCESS (case-insensitive key)
+	var fullAccess bool
+	for k, v := range userPerms {
+		if strings.ToUpper(k) == "FULLACCESS" {
+			if faBool, ok := v.(bool); ok && faBool {
+				fullAccess = true
+				break
+			}
 		}
+	}
+	if fullAccess {
+		return true
 	}
 
 	// Check each allowed permission

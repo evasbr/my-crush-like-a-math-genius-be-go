@@ -8,6 +8,7 @@ import (
 	"evasbr/mclamg/common"
 	"evasbr/mclamg/configuration"
 	"evasbr/mclamg/exception"
+	"evasbr/mclamg/middleware"
 	"evasbr/mclamg/model"
 	"evasbr/mclamg/service"
 
@@ -37,7 +38,7 @@ func (controller *AuthController) Route(router fiber.Router) {
 	authentication.Post("/login", controller.Login)
 	authentication.Post("/register", controller.Register)
 	authentication.Post("/refresh", controller.Refresh)
-	authentication.Post("/logout", controller.Logout)
+	authentication.Post("/logout", middleware.RequireAuth([]string{}, controller.Config, controller.Redis), controller.Logout)
 }
 
 // Register func handles user registration.
@@ -108,13 +109,15 @@ func (controller *AuthController) Login(c *fiber.Ctx) error {
 		}
 	}
 
+	cookieSecure := controller.Config.Get("COOKIE_SECURE") == "true"
+
 	// Set httpOnly cookies
 	c.Cookie(&fiber.Cookie{
 		Name:     "access_token",
 		Value:    result.AccessToken,
 		Expires:  time.Now().Add(time.Minute * time.Duration(jwtExpiredMinutes)),
 		HTTPOnly: true,
-		Secure:   false, // Change to true if HTTPS in production
+		Secure:   cookieSecure,
 		SameSite: "Lax",
 		Path:     "/",
 	})
@@ -124,7 +127,7 @@ func (controller *AuthController) Login(c *fiber.Ctx) error {
 		Value:    result.RefreshToken,
 		Expires:  time.Now().Add(time.Minute * time.Duration(refreshExpiredMinutes)),
 		HTTPOnly: true,
-		Secure:   false,
+		Secure:   cookieSecure,
 		SameSite: "Lax",
 		Path:     "/",
 	})
@@ -184,6 +187,8 @@ func (controller *AuthController) Refresh(c *fiber.Ctx) error {
 		}
 	}
 
+	cookieSecure := controller.Config.Get("COOKIE_SECURE") == "true"
+
 	// If refresh token rotated, set both cookies, otherwise just access token
 	if res.Rotated {
 		refreshExpiredMinutes := 10080
@@ -198,7 +203,7 @@ func (controller *AuthController) Refresh(c *fiber.Ctx) error {
 			Value:    res.AccessToken,
 			Expires:  time.Now().Add(time.Minute * time.Duration(jwtExpiredMinutes)),
 			HTTPOnly: true,
-			Secure:   false,
+			Secure:   cookieSecure,
 			SameSite: "Lax",
 			Path:     "/",
 		})
@@ -208,7 +213,7 @@ func (controller *AuthController) Refresh(c *fiber.Ctx) error {
 			Value:    res.RefreshToken,
 			Expires:  time.Now().Add(time.Minute * time.Duration(refreshExpiredMinutes)),
 			HTTPOnly: true,
-			Secure:   false,
+			Secure:   cookieSecure,
 			SameSite: "Lax",
 			Path:     "/",
 		})
@@ -218,7 +223,7 @@ func (controller *AuthController) Refresh(c *fiber.Ctx) error {
 			Value:    res.AccessToken,
 			Expires:  time.Now().Add(time.Minute * time.Duration(jwtExpiredMinutes)),
 			HTTPOnly: true,
-			Secure:   false,
+			Secure:   cookieSecure,
 			SameSite: "Lax",
 			Path:     "/",
 		})
@@ -266,12 +271,16 @@ func (controller *AuthController) Logout(c *fiber.Ctx) error {
 		})
 	}
 
+	cookieSecure := controller.Config.Get("COOKIE_SECURE") == "true"
+
 	// Clear cookies
 	c.Cookie(&fiber.Cookie{
 		Name:     "access_token",
 		Value:    "",
 		Expires:  time.Now().Add(-time.Hour),
 		HTTPOnly: true,
+		Secure:   cookieSecure,
+		SameSite: "Lax",
 		Path:     "/",
 	})
 
@@ -280,6 +289,8 @@ func (controller *AuthController) Logout(c *fiber.Ctx) error {
 		Value:    "",
 		Expires:  time.Now().Add(-time.Hour),
 		HTTPOnly: true,
+		Secure:   cookieSecure,
+		SameSite: "Lax",
 		Path:     "/",
 	})
 

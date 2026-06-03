@@ -44,6 +44,8 @@ func NewAuthServiceImpl(
 }
 
 func (s *authServiceImpl) Register(ctx context.Context, req model.RegisterRequest) (model.RegisterResponse, error) {
+	common.Validate(req)
+
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return model.RegisterResponse{}, err
@@ -83,6 +85,8 @@ func (s *authServiceImpl) Register(ctx context.Context, req model.RegisterReques
 }
 
 func (s *authServiceImpl) Login(ctx context.Context, req model.LoginRequest) (model.LoginResponse, error) {
+	common.Validate(req)
+
 	auth, err := s.AuthRepository.FindAuthentication(ctx, req.Identifier, []string{
 		string(entity.MethodLocalEmail),
 		string(entity.MethodLocalUsername),
@@ -115,7 +119,12 @@ func (s *authServiceImpl) Login(ctx context.Context, req model.LoginRequest) (mo
 	for _, userRole := range user.UserRoles {
 		roles = append(roles, userRole.Role.Name)
 	}
-	permissions := mergePermissions(user.UserRoles)
+
+	var permissionsList []map[string]interface{}
+	for _, userRole := range user.UserRoles {
+		permissionsList = append(permissionsList, userRole.Role.Permissions)
+	}
+	permissions := common.MergePermissions(permissionsList)
 
 	accessToken, refreshToken := common.GenerateTokenPair(user.ID.String(), user.Username, roles, permissions, s.Config)
 
@@ -207,6 +216,11 @@ func (s *authServiceImpl) RefreshToken(ctx context.Context, refreshTokenStr stri
 		return model.RefreshTokenResponse{}, errors.New("invalid claims")
 	}
 
+	tokenType, ok := claims["token_type"].(string)
+	if !ok || tokenType != "refresh" {
+		return model.RefreshTokenResponse{}, errors.New("invalid token type")
+	}
+
 	userIDStr, ok := claims["user_id"].(string)
 	if !ok {
 		return model.RefreshTokenResponse{}, errors.New("missing user_id claim")
@@ -226,7 +240,12 @@ func (s *authServiceImpl) RefreshToken(ctx context.Context, refreshTokenStr stri
 	for _, userRole := range user.UserRoles {
 		roles = append(roles, userRole.Role.Name)
 	}
-	permissions := mergePermissions(user.UserRoles)
+
+	var permissionsList []map[string]interface{}
+	for _, userRole := range user.UserRoles {
+		permissionsList = append(permissionsList, userRole.Role.Permissions)
+	}
+	permissions := common.MergePermissions(permissionsList)
 
 	var expTime time.Time
 	if expVal, existsVal := claims["exp"]; existsVal {
@@ -302,49 +321,4 @@ func (s *authServiceImpl) Logout(ctx context.Context, accessTokenStr, refreshTok
 	return nil
 }
 
-func mergePermissions(userRoles []entity.UserRole) map[string]interface{} {
-	merged := make(map[string]interface{})
-	for _, ur := range userRoles {
-		for k, v := range ur.Role.Permissions {
-			if k == "FULLACCESS" {
-				if valBool, ok := v.(bool); ok && valBool {
-					merged["FULLACCESS"] = true
-				}
-				continue
-			}
 
-			var newPerms []string
-			if slice, ok := v.([]interface{}); ok {
-				for _, item := range slice {
-					if itemStr, ok := item.(string); ok {
-						newPerms = append(newPerms, itemStr)
-					}
-				}
-			} else if sliceStr, ok := v.([]string); ok {
-				newPerms = append(newPerms, sliceStr...)
-			}
-
-			if len(newPerms) > 0 {
-				if existing, exists := merged[k]; exists {
-					if existingSlice, ok := existing.([]string); ok {
-						permMap := make(map[string]bool)
-						for _, p := range existingSlice {
-							permMap[p] = true
-						}
-						for _, p := range newPerms {
-							permMap[p] = true
-						}
-						var finalSlice []string
-						for p := range permMap {
-							finalSlice = append(finalSlice, p)
-						}
-						merged[k] = finalSlice
-					}
-				} else {
-					merged[k] = newPerms
-				}
-			}
-		}
-	}
-	return merged
-}
