@@ -1,7 +1,10 @@
-package handler
+package main
 
 import (
+	"fmt"
+	"log"
 	"net/http"
+	"os"
 	"sync"
 
 	"evasbr/mclamg/app"
@@ -40,4 +43,18 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 func handler() http.HandlerFunc {
 	initApp()
 	return adaptor.FiberApp(fiberApp)
+}
+
+func main() {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "Hello from Go on Vercel")
+	})
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "3000"
+	}
+
+	log.Fatal(http.ListenAndServe(":"+port, mux))
 }
