@@ -22,9 +22,6 @@ import (
 // It returns a configured *fiber.App instance.
 func BuildApp(config configuration.Config, database *gorm.DB, redis *redis.Client) *fiber.App {
 	//repository
-	productRepository := repository.NewProductRepositoryImpl(database)
-	transactionRepository := repository.NewTransactionRepositoryImpl(database)
-	transactionDetailRepository := repository.NewTransactionDetailRepositoryImpl(database)
 	userRepository := repository.NewUserRepositoryImpl(database)
 	authRepository := repository.NewAuthRepositoryImpl(database)
 
@@ -32,17 +29,11 @@ func BuildApp(config configuration.Config, database *gorm.DB, redis *redis.Clien
 	httpBinRestClient := restclient.NewHttpBinRestClient()
 
 	//service
-	productService := service.NewProductServiceImpl(&productRepository, redis)
-	transactionService := service.NewTransactionServiceImpl(&transactionRepository)
-	transactionDetailService := service.NewTransactionDetailServiceImpl(&transactionDetailRepository)
 	userService := service.NewUserServiceImpl(&userRepository)
 	authService := service.NewAuthServiceImpl(&userRepository, &authRepository, redis, config)
 	httpBinService := service.NewHttpBinServiceImpl(&httpBinRestClient)
 
 	//controller
-	productController := controller.NewProductController(&productService, config, redis)
-	transactionController := controller.NewTransactionController(&transactionService, config, redis)
-	transactionDetailController := controller.NewTransactionDetailController(&transactionDetailService, config, redis)
 	userController := controller.NewUserController(&userService, config, redis)
 	authController := controller.NewAuthController(&authService, config, redis)
 	httpBinController := controller.NewHttpBinController(&httpBinService)
@@ -56,9 +47,6 @@ func BuildApp(config configuration.Config, database *gorm.DB, redis *redis.Clien
 	app.Use(middleware.RequestID()) // Mount Request ID middleware and UserContext propagator
 
 	//routing
-	productController.Route(api)
-	transactionController.Route(api)
-	transactionDetailController.Route(api)
 	userController.Route(api)
 	authController.Route(api)
 	httpBinController.Route(api)

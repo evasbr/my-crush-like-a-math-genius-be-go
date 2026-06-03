@@ -27,17 +27,11 @@ func createTestApp() *fiber.App {
 	app.Use(cors.New())
 
 	//routing
-	productController.Route(app)
-	transactionController.Route(app)
-	transactionDetailController.Route(app)
 	userController.Route(app)
 	authController.Route(app)
 
 	// Route under v1/api prefix group to support prefix tests
 	v1 := app.Group("/v1/api")
-	productController.Route(v1)
-	transactionController.Route(v1)
-	transactionDetailController.Route(v1)
 	userController.Route(v1)
 	authController.Route(v1)
 
@@ -62,23 +56,14 @@ var database = configuration.NewDatabase(config)
 var redisClient = configuration.NewRedis(config)
 
 // repository
-var productRepository = impl.NewProductRepositoryImpl(database)
-var transactionRepository = impl.NewTransactionRepositoryImpl(database)
-var transactionDetailRepository = impl.NewTransactionDetailRepositoryImpl(database)
 var userRepository = impl.NewUserRepositoryImpl(database)
 var authRepository = impl.NewAuthRepositoryImpl(database)
 
 // service
-var productService = impl2.NewProductServiceImpl(&productRepository, redisClient)
-var transactionService = impl2.NewTransactionServiceImpl(&transactionRepository)
-var transactionDetailService = impl2.NewTransactionDetailServiceImpl(&transactionDetailRepository)
 var userService = impl2.NewUserServiceImpl(&userRepository)
 var authService = impl2.NewAuthServiceImpl(&userRepository, &authRepository, redisClient, config)
 
 // controller
-var productController = NewProductController(&productService, config, redisClient)
-var transactionController = NewTransactionController(&transactionService, config, redisClient)
-var transactionDetailController = NewTransactionDetailController(&transactionDetailService, config, redisClient)
 var userController = NewUserController(&userService, config, redisClient)
 var authController = NewAuthController(&authService, config, redisClient)
 
