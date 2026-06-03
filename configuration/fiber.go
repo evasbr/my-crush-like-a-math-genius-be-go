@@ -7,6 +7,7 @@ import (
 
 func NewFiberConfiguration() fiber.Config {
 	return fiber.Config{
-		ErrorHandler: exception.ErrorHandler,
+		ErrorHandler:   exception.ErrorHandler,
+		ReadBufferSize: 16384,
 	}
 }
