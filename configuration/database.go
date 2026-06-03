@@ -34,7 +34,12 @@ func NewDatabase(config Config) *gorm.DB {
 		},
 	)
 
-	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=Asia/Jakarta", host, username, password, dbName, port)
+	sslMode := config.Get("DATASOURCE_SSL_MODE")
+	if sslMode == "" {
+		sslMode = "disable"
+	}
+
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=Asia/Jakarta", host, username, password, dbName, port, sslMode)
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: loggerDb,
 	})

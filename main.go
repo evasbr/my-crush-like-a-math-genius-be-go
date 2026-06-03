@@ -136,8 +136,12 @@ func runMigrateCommand(config configuration.Config, action string, args ...strin
 	host := config.Get("DATASOURCE_HOST")
 	port := config.Get("DATASOURCE_PORT")
 	dbName := config.Get("DATASOURCE_DB_NAME")
+	sslMode := config.Get("DATASOURCE_SSL_MODE")
+	if sslMode == "" {
+		sslMode = "disable"
+	}
 
-	dbURL := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", username, password, host, port, dbName)
+	dbURL := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s", username, password, host, port, dbName, sslMode)
 
 	migrateCmd := "migrate"
 	if _, err := exec.LookPath(migrateCmd); err != nil {
