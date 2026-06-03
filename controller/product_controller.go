@@ -7,6 +7,8 @@ import (
 	"evasbr/mclamg/middleware"
 	"evasbr/mclamg/model"
 	"evasbr/mclamg/service"
+
+	"github.com/go-redis/redis/v9"
 	"github.com/gofiber/fiber/v2"
 	"github.com/sirupsen/logrus"
 )
@@ -14,23 +16,26 @@ import (
 type ProductController struct {
 	service.ProductService
 	configuration.Config
-	log *logrus.Entry
+	Redis *redis.Client
+	log   *logrus.Entry
 }
 
-func NewProductController(productService *service.ProductService, config configuration.Config) *ProductController {
+func NewProductController(productService *service.ProductService, config configuration.Config, redis *redis.Client) *ProductController {
 	return &ProductController{
 		ProductService: *productService,
 		Config:         config,
+		Redis:          redis,
 		log:            common.Log.WithField("scope", "ProductController"),
 	}
 }
 
-func (controller ProductController) Route(app *fiber.App) {
-	app.Post("/v1/api/product", middleware.AuthenticateJWT("ROLE_ADMIN", controller.Config), controller.Create)
-	app.Put("/v1/api/product/:id", middleware.AuthenticateJWT("ROLE_ADMIN", controller.Config), controller.Update)
-	app.Delete("/v1/api/product/:id", middleware.AuthenticateJWT("ROLE_ADMIN", controller.Config), controller.Delete)
-	app.Get("/v1/api/product/:id", middleware.AuthenticateJWT("ROLE_ADMIN", controller.Config), controller.FindById)
-	app.Get("/v1/api/product", middleware.AuthenticateJWT("ROLE_ADMIN", controller.Config), controller.FindAll)
+func (controller ProductController) Route(router fiber.Router) {
+	product := router.Group("/product")
+	product.Post("/", middleware.RequireAuth([]string{"ROLE_ADMIN", "write:product"}, controller.Config, controller.Redis), controller.Create)
+	product.Put("/:id", middleware.RequireAuth([]string{"ROLE_ADMIN", "write:product"}, controller.Config, controller.Redis), controller.Update)
+	product.Delete("/:id", middleware.RequireAuth([]string{"ROLE_ADMIN", "write:product"}, controller.Config, controller.Redis), controller.Delete)
+	product.Get("/:id", middleware.RequireAuth([]string{"ROLE_ADMIN", "read:product"}, controller.Config, controller.Redis), controller.FindById)
+	product.Get("/", middleware.RequireAuth([]string{"ROLE_ADMIN", "read:product"}, controller.Config, controller.Redis), controller.FindAll)
 }
 
 // Create func create product.
@@ -53,7 +58,7 @@ func (controller ProductController) Create(c *fiber.Ctx) error {
 
 	response := controller.ProductService.Create(ctx, request)
 	return c.Status(fiber.StatusCreated).JSON(model.GeneralResponse{
-		Code:    200,
+		Code:    fiber.StatusCreated,
 		Message: "Success",
 		Data:    response,
 	})

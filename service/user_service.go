@@ -7,5 +7,8 @@ import (
 )
 
 type UserService interface {
-	Authentication(ctx context.Context, model model.UserModel) entity.User
+	FindAll(ctx context.Context, filter model.UserFilter) ([]entity.User, error)
+	FindByID(ctx context.Context, id string) (entity.User, error)
+	Update(ctx context.Context, model model.UpdateUser, id string) (entity.User, error)
+	Delete(ctx context.Context, id string) error
 }

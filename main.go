@@ -16,7 +16,10 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"os/signal"
+	"path/filepath"
+	"runtime"
 	"syscall"
 
 	"github.com/gofiber/fiber/v2"
@@ -46,6 +49,9 @@ func main() {
 	runSeed := flag.Bool("seed", false, "run database seeders")
 	runRollback := flag.Bool("seed-rollback", false, "rollback database seeders")
 	createSeed := flag.String("seed-create", "", "generate a new empty seeder file with timestamp prefix")
+	runMigrate := flag.Bool("migrate", false, "run all database migrations")
+	runMigrateRollback := flag.Bool("migrate-rollback", false, "rollback the last database migration")
+	runMigrateRollbackAll := flag.Bool("migrate-rollback-all", false, "rollback all database migrations")
 	flag.Parse()
 
 	if *createSeed != "" {
@@ -58,6 +64,34 @@ func main() {
 
 	//setup configuration
 	config := configuration.New()
+
+	if *runMigrate {
+		fmt.Println("Running database migrations...")
+		if err := runMigrateCommand(config, "up"); err != nil {
+			log.Fatalf("Migration failed: %v", err)
+		}
+		fmt.Println("Migration completed successfully.")
+		return
+	}
+
+	if *runMigrateRollback {
+		fmt.Println("Rolling back the last database migration...")
+		if err := runMigrateCommand(config, "down", "1"); err != nil {
+			log.Fatalf("Migration rollback failed: %v", err)
+		}
+		fmt.Println("Migration rollback completed successfully.")
+		return
+	}
+
+	if *runMigrateRollbackAll {
+		fmt.Println("Rolling back all database migrations...")
+		if err := runMigrateCommand(config, "down", "-all"); err != nil {
+			log.Fatalf("Migration rollback all failed: %v", err)
+		}
+		fmt.Println("Migration rollback all completed successfully.")
+		return
+	}
+
 	database := configuration.NewDatabase(config)
 
 	if *runSeed {
@@ -85,6 +119,7 @@ func main() {
 	transactionRepository := repository.NewTransactionRepositoryImpl(database)
 	transactionDetailRepository := repository.NewTransactionDetailRepositoryImpl(database)
 	userRepository := repository.NewUserRepositoryImpl(database)
+	authRepository := repository.NewAuthRepositoryImpl(database)
 
 	//rest client
 	httpBinRestClient := restclient.NewHttpBinRestClient()
@@ -94,28 +129,32 @@ func main() {
 	transactionService := service.NewTransactionServiceImpl(&transactionRepository)
 	transactionDetailService := service.NewTransactionDetailServiceImpl(&transactionDetailRepository)
 	userService := service.NewUserServiceImpl(&userRepository)
+	authService := service.NewAuthServiceImpl(&userRepository, &authRepository, redis, config)
 	httpBinService := service.NewHttpBinServiceImpl(&httpBinRestClient)
 
 	//controller
-	productController := controller.NewProductController(&productService, config)
-	transactionController := controller.NewTransactionController(&transactionService, config)
-	transactionDetailController := controller.NewTransactionDetailController(&transactionDetailService, config)
-	userController := controller.NewUserController(&userService, config)
+	productController := controller.NewProductController(&productService, config, redis)
+	transactionController := controller.NewTransactionController(&transactionService, config, redis)
+	transactionDetailController := controller.NewTransactionDetailController(&transactionDetailService, config, redis)
+	userController := controller.NewUserController(&userService, config, redis)
+	authController := controller.NewAuthController(&authService, config, redis)
 	httpBinController := controller.NewHttpBinController(&httpBinService)
 
 	//setup fiber
 	app := fiber.New(configuration.NewFiberConfiguration())
+	api := app.Group("/api/v1")
 	app.Use(recover.New())
 	app.Use(cors.New())
 	app.Use(requestid.New())
 	app.Use(middleware.RequestID()) // Mount Request ID middleware and UserContext propagator
 
 	//routing
-	productController.Route(app)
-	transactionController.Route(app)
-	transactionDetailController.Route(app)
-	userController.Route(app)
-	httpBinController.Route(app)
+	productController.Route(api)
+	transactionController.Route(api)
+	transactionDetailController.Route(api)
+	userController.Route(api)
+	authController.Route(api)
+	httpBinController.Route(api)
 
 	//swagger
 	app.Get("/swagger/*", swagger.HandlerDefault)
@@ -158,4 +197,35 @@ func HealthCheck(c *fiber.Ctx) error {
 		Code:    200,
 		Message: "Hello world",
 	})
+}
+
+func runMigrateCommand(config configuration.Config, action string, args ...string) error {
+	username := config.Get("DATASOURCE_USERNAME")
+	password := config.Get("DATASOURCE_PASSWORD")
+	host := config.Get("DATASOURCE_HOST")
+	port := config.Get("DATASOURCE_PORT")
+	dbName := config.Get("DATASOURCE_DB_NAME")
+
+	dbURL := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", username, password, host, port, dbName)
+
+	migrateCmd := "migrate"
+	if _, err := exec.LookPath(migrateCmd); err != nil {
+		userHome, _ := os.UserHomeDir()
+		fallbackPath := filepath.Join(userHome, "go", "bin", "migrate")
+		if runtime.GOOS == "windows" {
+			fallbackPath += ".exe"
+		}
+		if _, err := os.Stat(fallbackPath); err == nil {
+			migrateCmd = fallbackPath
+		}
+	}
+
+	cmdArgs := []string{"-database", dbURL, "-path", "db/migrations", action}
+	cmdArgs = append(cmdArgs, args...)
+
+	cmd := exec.Command(migrateCmd, cmdArgs...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	return cmd.Run()
 }

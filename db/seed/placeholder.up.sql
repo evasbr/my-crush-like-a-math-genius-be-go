@@ -1,0 +1,1 @@
+-- Placeholder up seed file to satisfy go:embed constraint when directory is empty.

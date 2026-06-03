@@ -5,7 +5,36 @@ definitions:
       code:
         type: integer
       data: {}
+      errors: {}
       message:
+        type: string
+    type: object
+  model.LoginRequest:
+    properties:
+      identifier:
+        type: string
+      password:
+        type: string
+    required:
+    - identifier
+    - password
+    type: object
+  model.LoginResponse:
+    properties:
+      access_token:
+        type: string
+      permissions:
+        additionalProperties: true
+        type: object
+      refresh_token:
+        type: string
+      roles:
+        items:
+          type: string
+        type: array
+      user:
+        $ref: '#/definitions/model.UserDto'
+      username:
         type: string
     type: object
   model.ProductCreateOrUpdateModel:
@@ -31,6 +60,64 @@ definitions:
         type: integer
       quantity:
         type: integer
+    type: object
+  model.RefreshTokenResponse:
+    properties:
+      access_token:
+        type: string
+      refresh_token:
+        type: string
+      rotated:
+        type: boolean
+    type: object
+  model.RegisterRequest:
+    properties:
+      email:
+        type: string
+      first_name:
+        maxLength: 50
+        minLength: 3
+        type: string
+      gender:
+        enum:
+        - male
+        - female
+        type: string
+      last_name:
+        maxLength: 50
+        type: string
+      password:
+        maxLength: 50
+        minLength: 6
+        type: string
+      profile_picture_url:
+        type: string
+      username:
+        maxLength: 30
+        minLength: 3
+        type: string
+    required:
+    - email
+    - first_name
+    - password
+    - username
+    type: object
+  model.RegisterResponse:
+    properties:
+      email:
+        type: string
+      first_name:
+        type: string
+      gender:
+        type: string
+      id:
+        type: string
+      last_name:
+        type: string
+      profile_picture_url:
+        type: string
+      username:
+        type: string
     type: object
   model.TransactionCreateUpdateModel:
     properties:
@@ -63,9 +150,45 @@ definitions:
     - quantity
     - sub_total_price
     type: object
-  model.UserModel:
+  model.UserDto:
     properties:
-      password:
+      email:
+        type: string
+      first_name:
+        type: string
+      gender:
+        type: string
+      id:
+        type: string
+      last_name:
+        type: string
+      profile_picture_url:
+        type: string
+      status:
+        type: string
+    type: object
+  model.UserProfileResponse:
+    properties:
+      email:
+        type: string
+      first_name:
+        type: string
+      gender:
+        type: string
+      id:
+        type: string
+      last_name:
+        type: string
+      permissions:
+        additionalProperties: true
+        type: object
+      profile_picture_url:
+        type: string
+      roles:
+        items:
+          type: string
+        type: array
+      status:
         type: string
       username:
         type: string
@@ -96,28 +219,126 @@ paths:
       summary: health check
       tags:
       - Health
-  /v1/api/authentication:
+  /api/v1/authentication/login:
     post:
       consumes:
       - application/json
-      description: authenticate user.
+      description: login a user.
       parameters:
-      - description: Request Body
+      - description: Login Request Body
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/model.UserModel'
+          $ref: '#/definitions/model.LoginRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/model.GeneralResponse'
-      summary: authenticate user
+            allOf:
+            - $ref: '#/definitions/model.GeneralResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.LoginResponse'
+              type: object
+      summary: login user
       tags:
-      - Authenticate user
+      - Authentication
+  /api/v1/authentication/logout:
+    post:
+      consumes:
+      - application/json
+      description: log out user and clear tokens/cookies.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.GeneralResponse'
+            - properties:
+                data:
+                  type: string
+              type: object
+      security:
+      - JWT: []
+      summary: logout user
+      tags:
+      - Authentication
+  /api/v1/authentication/refresh:
+    post:
+      consumes:
+      - application/json
+      description: refresh access token using refresh token.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.GeneralResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.RefreshTokenResponse'
+              type: object
+      security:
+      - JWT: []
+      summary: refresh token
+      tags:
+      - Authentication
+  /api/v1/authentication/register:
+    post:
+      consumes:
+      - application/json
+      description: register a new user.
+      parameters:
+      - description: Register Request Body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.GeneralResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.RegisterResponse'
+              type: object
+      summary: register user
+      tags:
+      - Authentication
+  /api/v1/users/me:
+    get:
+      consumes:
+      - application/json
+      description: gets current user profile based on JWT claim.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.GeneralResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.UserProfileResponse'
+              type: object
+      security:
+      - JWT: []
+      summary: get profile
+      tags:
+      - User
   /v1/api/product:
     get:
       consumes:

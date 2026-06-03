@@ -8,28 +8,32 @@ import (
 	"evasbr/mclamg/model"
 	"evasbr/mclamg/service"
 	"github.com/gofiber/fiber/v2"
+	"github.com/go-redis/redis/v9"
 	"github.com/sirupsen/logrus"
 )
 
 type TransactionController struct {
 	service.TransactionService
 	configuration.Config
+	Redis *redis.Client
 	log *logrus.Entry
 }
 
-func NewTransactionController(transactionService *service.TransactionService, config configuration.Config) *TransactionController {
+func NewTransactionController(transactionService *service.TransactionService, config configuration.Config, redis *redis.Client) *TransactionController {
 	return &TransactionController{
 		TransactionService: *transactionService,
 		Config:             config,
+		Redis:              redis,
 		log:                common.Log.WithField("scope", "TransactionController"),
 	}
 }
 
-func (controller TransactionController) Route(app *fiber.App) {
-	app.Post("/v1/api/transaction", middleware.AuthenticateJWT("ROLE_USER", controller.Config), controller.Create)
-	app.Delete("/v1/api/transaction/:id", middleware.AuthenticateJWT("ROLE_USER", controller.Config), controller.Delete)
-	app.Get("/v1/api/transaction/:id", middleware.AuthenticateJWT("ROLE_USER", controller.Config), controller.FindById)
-	app.Get("/v1/api/transaction", middleware.AuthenticateJWT("ROLE_USER", controller.Config), controller.FindAll)
+func (controller TransactionController) Route(router fiber.Router) {
+	transaction := router.Group("/transaction")
+	transaction.Post("/", middleware.RequireAuth([]string{"ROLE_USER", "write:transaction"}, controller.Config, controller.Redis), controller.Create)
+	transaction.Delete("/:id", middleware.RequireAuth([]string{"ROLE_USER", "write:transaction"}, controller.Config, controller.Redis), controller.Delete)
+	transaction.Get("/:id", middleware.RequireAuth([]string{"ROLE_USER", "read:transaction"}, controller.Config, controller.Redis), controller.FindById)
+	transaction.Get("/", middleware.RequireAuth([]string{"ROLE_USER", "read:transaction"}, controller.Config, controller.Redis), controller.FindAll)
 }
 
 // Create func create transaction.
@@ -48,7 +52,7 @@ func (controller TransactionController) Create(c *fiber.Ctx) error {
 	exception.PanicLogging(err)
 
 	response := controller.TransactionService.Create(c.UserContext(), request)
-	return c.Status(fiber.StatusCreated).JSON(model.GeneralResponse{
+	return c.Status(fiber.StatusOK).JSON(model.GeneralResponse{
 		Code:    200,
 		Message: "Success",
 		Data:    response,

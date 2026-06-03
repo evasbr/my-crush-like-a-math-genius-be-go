@@ -20,8 +20,9 @@ func NewHttpBinController(httpBinService *service.HttpBinService) *HttpBinContro
 	}
 }
 
-func (controller HttpBinController) Route(app *fiber.App) {
-	app.Get("/v1/api/httpbin", controller.PostHttpBin)
+func (controller HttpBinController) Route(router fiber.Router) {
+	httpbin := router.Group("/httpbin")
+	httpbin.Get("/", controller.PostHttpBin)
 }
 
 func (controller HttpBinController) PostHttpBin(c *fiber.Ctx) error {
