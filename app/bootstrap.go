@@ -42,7 +42,18 @@ func BuildApp(config configuration.Config, database *gorm.DB, redis *redis.Clien
 	app := fiber.New(configuration.NewFiberConfiguration())
 	api := app.Group("/api/v1")
 	app.Use(recover.New())
-	app.Use(cors.New())
+	allowedOrigins := config.Get("CORS_ALLOWED_ORIGINS")
+	allowCredentials := true
+	if allowedOrigins == "" || allowedOrigins == "*" {
+		allowedOrigins = "*"
+		allowCredentials = false
+	}
+	app.Use(cors.New(cors.Config{
+		AllowOrigins:     allowedOrigins,
+		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
+		AllowMethods:     "GET, POST, HEAD, PUT, DELETE, PATCH, OPTIONS",
+		AllowCredentials: allowCredentials,
+	}))
 	app.Use(requestid.New())
 	app.Use(middleware.RequestID()) // Mount Request ID middleware and UserContext propagator
 

@@ -24,7 +24,18 @@ func createTestApp() *fiber.App {
 	//setup fiber
 	app := fiber.New(configuration.NewFiberConfiguration())
 	app.Use(recover.New())
-	app.Use(cors.New())
+	allowedOrigins := config.Get("CORS_ALLOWED_ORIGINS")
+	allowCredentials := true
+	if allowedOrigins == "" || allowedOrigins == "*" {
+		allowedOrigins = "*"
+		allowCredentials = false
+	}
+	app.Use(cors.New(cors.Config{
+		AllowOrigins:     allowedOrigins,
+		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
+		AllowMethods:     "GET, POST, HEAD, PUT, DELETE, PATCH, OPTIONS",
+		AllowCredentials: allowCredentials,
+	}))
 
 	//routing
 	userController.Route(app)
