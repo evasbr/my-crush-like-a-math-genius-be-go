@@ -14,11 +14,26 @@ import (
 )
 
 func NewDatabase(config Config) *gorm.DB {
-	username := config.Get("DATASOURCE_USERNAME")
-	password := config.Get("DATASOURCE_PASSWORD")
-	host := config.Get("DATASOURCE_HOST")
-	port := config.Get("DATASOURCE_PORT")
-	dbName := config.Get("DATASOURCE_DB_NAME")
+	databaseURL := config.Get("DATABASE_URL")
+	if databaseURL == "" {
+		databaseURL = config.Get("POSTGRES_URL")
+	}
+
+	var dsn string
+	if databaseURL != "" {
+		dsn = databaseURL
+	} else {
+		username := config.Get("DATASOURCE_USERNAME")
+		password := config.Get("DATASOURCE_PASSWORD")
+		host := config.Get("DATASOURCE_HOST")
+		port := config.Get("DATASOURCE_PORT")
+		dbName := config.Get("DATASOURCE_DB_NAME")
+		sslMode := config.Get("DATASOURCE_SSL_MODE")
+		if sslMode == "" {
+			sslMode = "disable"
+		}
+		dsn = fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=Asia/Jakarta", host, username, password, dbName, port, sslMode)
+	}
 	maxPoolOpen := 10
 	if val := config.Get("DATASOURCE_POOL_MAX_CONN"); val != "" {
 		if i, err := strconv.Atoi(val); err == nil {
@@ -50,12 +65,6 @@ func NewDatabase(config Config) *gorm.DB {
 		},
 	)
 
-	sslMode := config.Get("DATASOURCE_SSL_MODE")
-	if sslMode == "" {
-		sslMode = "disable"
-	}
-
-	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=Asia/Jakarta", host, username, password, dbName, port, sslMode)
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: loggerDb,
 	})
