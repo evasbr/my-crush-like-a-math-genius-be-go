@@ -867,10 +867,12 @@ const docTemplate = `{
         "model.LevelSettingDto": {
             "type": "object",
             "required": [
-                "level",
-                "score"
+                "level"
             ],
             "properties": {
+                "false_score": {
+                    "type": "integer"
+                },
                 "level": {
                     "type": "string",
                     "enum": [
@@ -879,9 +881,8 @@ const docTemplate = `{
                         "hard"
                     ]
                 },
-                "score": {
-                    "type": "integer",
-                    "minimum": 0
+                "true_score": {
+                    "type": "integer"
                 }
             }
         },

@@ -71,8 +71,9 @@ func (s *topicServiceImpl) Create(ctx context.Context, request model.CreateTopic
 	levelSettings := make([]entity.LevelSetting, len(request.LevelSettings))
 	for i, ls := range request.LevelSettings {
 		levelSettings[i] = entity.LevelSetting{
-			Level: ls.Level,
-			Score: ls.Score,
+			Level:      ls.Level,
+			TrueScore:  ls.TrueScore,
+			FalseScore: ls.FalseScore,
 		}
 	}
 
@@ -106,8 +107,9 @@ func (s *topicServiceImpl) Update(ctx context.Context, request model.UpdateTopic
 	levelSettings := make([]entity.LevelSetting, len(request.LevelSettings))
 	for i, ls := range request.LevelSettings {
 		levelSettings[i] = entity.LevelSetting{
-			Level: ls.Level,
-			Score: ls.Score,
+			Level:      ls.Level,
+			TrueScore:  ls.TrueScore,
+			FalseScore: ls.FalseScore,
 		}
 	}
 
@@ -151,8 +153,9 @@ func (s *topicServiceImpl) toTopicResponse(topic entity.Topic) model.TopicRespon
 	levelSettings := make([]model.LevelSettingDto, len(topic.LevelSettings))
 	for i, ls := range topic.LevelSettings {
 		levelSettings[i] = model.LevelSettingDto{
-			Level: ls.Level,
-			Score: ls.Score,
+			Level:      ls.Level,
+			TrueScore:  ls.TrueScore,
+			FalseScore: ls.FalseScore,
 		}
 	}
 

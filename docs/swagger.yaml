@@ -85,18 +85,18 @@ definitions:
     type: object
   model.LevelSettingDto:
     properties:
+      false_score:
+        type: integer
       level:
         enum:
         - easy
         - medium
         - hard
         type: string
-      score:
-        minimum: 0
+      true_score:
         type: integer
     required:
     - level
-    - score
     type: object
   model.LoginRequest:
     properties:

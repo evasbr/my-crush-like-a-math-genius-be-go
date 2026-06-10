@@ -8,8 +8,9 @@ import (
 )
 
 type LevelSetting struct {
-	Level string `json:"level"`
-	Score int    `json:"score"`
+	Level      string `json:"level"`
+	TrueScore  int    `json:"true_score"`
+	FalseScore int    `json:"false_score"`
 }
 
 type Topic struct {

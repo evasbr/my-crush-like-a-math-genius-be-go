@@ -1,8 +1,9 @@
 package model
 
 type LevelSettingDto struct {
-	Level string `json:"level" validate:"required,oneof=easy medium hard"`
-	Score int    `json:"score" validate:"required,min=0"`
+	Level      string `json:"level" validate:"required,oneof=easy medium hard"`
+	TrueScore  int    `json:"true_score"`
+	FalseScore int    `json:"false_score"`
 }
 
 type CreateTopicRequest struct {
