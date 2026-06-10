@@ -240,3 +240,50 @@ func hasPermission(userPerms map[string]interface{}, allowedPermissions []string
 	}
 	return false
 }
+
+// OptionalAuth parses the access token and populates c.Locals("user") if valid, but does not block request if missing/invalid.
+func OptionalAuth(config configuration.Config, redisClient *redis.Client) fiber.Handler {
+	jwtSecret := config.Get("JWT_SECRET_KEY")
+
+	return func(c *fiber.Ctx) error {
+		tokenStr := c.Cookies("access_token")
+		if tokenStr == "" {
+			authHeader := c.Get("Authorization")
+			if authHeader != "" {
+				parts := strings.Split(authHeader, " ")
+				if len(parts) == 2 && strings.ToLower(parts[0]) == "bearer" {
+					tokenStr = parts[1]
+				} else if len(parts) == 1 {
+					tokenStr = parts[0]
+				}
+			}
+		}
+
+		if tokenStr == "" {
+			return c.Next()
+		}
+
+		token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			}
+			return []byte(jwtSecret), nil
+		})
+
+		if err != nil {
+			return c.Next()
+		}
+
+		if !token.Valid {
+			return c.Next()
+		}
+
+		exists, rErr := redisClient.Exists(c.Context(), "whitelist:access_token:"+tokenStr).Result()
+		if rErr != nil || exists == 0 {
+			return c.Next()
+		}
+
+		c.Locals("user", token)
+		return c.Next()
+	}
+}

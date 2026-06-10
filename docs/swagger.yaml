@@ -1,5 +1,63 @@
 basePath: /
 definitions:
+  model.AnswerOptionDto:
+    properties:
+      content:
+        type: string
+      id:
+        type: string
+      isCorrect:
+        type: boolean
+    required:
+    - content
+    type: object
+  model.CreateAnswerOptionDto:
+    properties:
+      content:
+        type: string
+      isCorrect:
+        type: boolean
+    required:
+    - content
+    - isCorrect
+    type: object
+  model.CreateQuestionBatchItem:
+    properties:
+      content:
+        type: string
+      options:
+        items:
+          $ref: '#/definitions/model.CreateAnswerOptionDto'
+        minItems: 1
+        type: array
+      timeLimit:
+        minimum: 1
+        type: integer
+    required:
+    - content
+    - options
+    - timeLimit
+    type: object
+  model.CreateQuestionBatchRequest:
+    properties:
+      level:
+        enum:
+        - easy
+        - medium
+        - hard
+        type: string
+      questions:
+        items:
+          $ref: '#/definitions/model.CreateQuestionBatchItem'
+        minItems: 1
+        type: array
+      topicId:
+        type: string
+    required:
+    - level
+    - questions
+    - topicId
+    type: object
   model.CreateTopicRequest:
     properties:
       level_settings:
@@ -66,6 +124,27 @@ definitions:
       user:
         $ref: '#/definitions/model.UserDto'
       username:
+        type: string
+    type: object
+  model.QuestionResponse:
+    properties:
+      content:
+        type: string
+      createdAt:
+        type: string
+      id:
+        type: string
+      level:
+        type: string
+      options:
+        items:
+          $ref: '#/definitions/model.AnswerOptionDto'
+        type: array
+      timeLimit:
+        type: integer
+      topicId:
+        type: string
+      updatedAt:
         type: string
     type: object
   model.RefreshTokenResponse:
@@ -142,6 +221,23 @@ definitions:
         type: string
       updated_at:
         type: string
+    type: object
+  model.UpdateQuestionRequest:
+    properties:
+      content:
+        type: string
+      options:
+        items:
+          $ref: '#/definitions/model.AnswerOptionDto'
+        minItems: 1
+        type: array
+      timeLimit:
+        minimum: 1
+        type: integer
+    required:
+    - content
+    - options
+    - timeLimit
     type: object
   model.UpdateTopicRequest:
     properties:
@@ -313,6 +409,158 @@ paths:
       summary: register user
       tags:
       - Authentication
+  /api/v1/questions:
+    get:
+      consumes:
+      - application/json
+      description: list all questions.
+      parameters:
+      - description: Filter by topic ID
+        in: query
+        name: topicId
+        type: string
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Limit number
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.GeneralResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.QuestionResponse'
+                  type: array
+              type: object
+      summary: list questions
+      tags:
+      - Question
+  /api/v1/questions/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: delete a question by UUID.
+      parameters:
+      - description: Question ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.GeneralResponse'
+            - properties:
+                data:
+                  type: string
+              type: object
+      security:
+      - JWT: []
+      summary: delete question
+      tags:
+      - Question
+    get:
+      consumes:
+      - application/json
+      description: get a specific question by UUID.
+      parameters:
+      - description: Question ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.GeneralResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.QuestionResponse'
+              type: object
+      summary: get question
+      tags:
+      - Question
+    put:
+      consumes:
+      - application/json
+      description: update an existing question and sync its answers.
+      parameters:
+      - description: Question ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update Question Request Body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.UpdateQuestionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.GeneralResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.QuestionResponse'
+              type: object
+      security:
+      - JWT: []
+      summary: update question
+      tags:
+      - Question
+  /api/v1/questions/batch:
+    post:
+      consumes:
+      - application/json
+      description: create questions in batch for a topic.
+      parameters:
+      - description: Create Questions Batch Request Body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.CreateQuestionBatchRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.GeneralResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.QuestionResponse'
+                  type: array
+              type: object
+      security:
+      - JWT: []
+      summary: create questions batch
+      tags:
+      - Question
   /api/v1/topics:
     get:
       consumes:

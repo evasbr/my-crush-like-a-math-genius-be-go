@@ -21,7 +21,13 @@ func ErrorHandler(ctx *fiber.Ctx, err error) error {
 		var messages []map[string]interface{}
 
 		errJson := json.Unmarshal([]byte(data), &messages)
-		PanicLogging(errJson)
+		if errJson != nil {
+			return ctx.Status(fiber.StatusBadRequest).JSON(model.GeneralResponse{
+				Code:    400,
+				Message: "Bad Request",
+				Data:    data,
+			})
+		}
 		return ctx.Status(fiber.StatusBadRequest).JSON(model.GeneralResponse{
 			Code:    400,
 			Message: "Bad Request",
