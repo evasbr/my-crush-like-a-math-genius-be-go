@@ -1,5 +1,6 @@
 CREATE TABLE topics (
     id UUID PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
     level_settings JSONB,
     max_attempts INT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now(),

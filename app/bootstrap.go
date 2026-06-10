@@ -4,9 +4,9 @@ import (
 	"evasbr/mclamg/client/restclient"
 	"evasbr/mclamg/configuration"
 	"evasbr/mclamg/controller"
+	"evasbr/mclamg/docs"
 	"evasbr/mclamg/middleware"
 	"evasbr/mclamg/model"
-	"evasbr/mclamg/docs"
 	repository "evasbr/mclamg/repository/impl"
 	service "evasbr/mclamg/service/impl"
 	"os"
@@ -26,6 +26,7 @@ func BuildApp(config configuration.Config, database *gorm.DB, redis *redis.Clien
 	//repository
 	userRepository := repository.NewUserRepositoryImpl(database)
 	authRepository := repository.NewAuthRepositoryImpl(database)
+	topicRepository := repository.NewTopicRepositoryImpl(database)
 
 	//rest client
 	httpBinRestClient := restclient.NewHttpBinRestClient()
@@ -34,11 +35,13 @@ func BuildApp(config configuration.Config, database *gorm.DB, redis *redis.Clien
 	userService := service.NewUserServiceImpl(&userRepository)
 	authService := service.NewAuthServiceImpl(&userRepository, &authRepository, redis, config)
 	httpBinService := service.NewHttpBinServiceImpl(&httpBinRestClient)
+	topicService := service.NewTopicServiceImpl(&topicRepository)
 
 	//controller
 	userController := controller.NewUserController(&userService, config, redis)
 	authController := controller.NewAuthController(&authService, config, redis)
 	httpBinController := controller.NewHttpBinController(&httpBinService)
+	topicController := controller.NewTopicController(&topicService, config, redis)
 
 	//setup fiber
 	app := fiber.New(configuration.NewFiberConfiguration())
@@ -63,6 +66,7 @@ func BuildApp(config configuration.Config, database *gorm.DB, redis *redis.Clien
 	userController.Route(api)
 	authController.Route(api)
 	httpBinController.Route(api)
+	topicController.Route(api)
 
 	//swagger
 	docs.SwaggerInfo.Host = ""

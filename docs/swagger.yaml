@@ -1,5 +1,21 @@
 basePath: /
 definitions:
+  model.CreateTopicRequest:
+    properties:
+      level_settings:
+        items:
+          $ref: '#/definitions/model.LevelSettingDto'
+        type: array
+      max_attempts:
+        minimum: 1
+        type: integer
+      name:
+        type: string
+    required:
+    - level_settings
+    - max_attempts
+    - name
+    type: object
   model.GeneralResponse:
     properties:
       code:
@@ -8,6 +24,21 @@ definitions:
       errors: {}
       message:
         type: string
+    type: object
+  model.LevelSettingDto:
+    properties:
+      level:
+        enum:
+        - easy
+        - medium
+        - hard
+        type: string
+      score:
+        minimum: 0
+        type: integer
+    required:
+    - level
+    - score
     type: object
   model.LoginRequest:
     properties:
@@ -94,6 +125,39 @@ definitions:
         type: string
       username:
         type: string
+    type: object
+  model.TopicResponse:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      level_settings:
+        items:
+          $ref: '#/definitions/model.LevelSettingDto'
+        type: array
+      max_attempts:
+        type: integer
+      name:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  model.UpdateTopicRequest:
+    properties:
+      level_settings:
+        items:
+          $ref: '#/definitions/model.LevelSettingDto'
+        type: array
+      max_attempts:
+        minimum: 1
+        type: integer
+      name:
+        type: string
+    required:
+    - level_settings
+    - max_attempts
+    - name
     type: object
   model.UserDto:
     properties:
@@ -249,6 +313,151 @@ paths:
       summary: register user
       tags:
       - Authentication
+  /api/v1/topics:
+    get:
+      consumes:
+      - application/json
+      description: list all topics.
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Limit number
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.GeneralResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.TopicResponse'
+                  type: array
+              type: object
+      summary: list topics
+      tags:
+      - Topic
+    post:
+      consumes:
+      - application/json
+      description: create a new topic.
+      parameters:
+      - description: Create Topic Request Body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.CreateTopicRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.GeneralResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.TopicResponse'
+              type: object
+      security:
+      - JWT: []
+      summary: create topic
+      tags:
+      - Topic
+  /api/v1/topics/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: delete a topic by UUID.
+      parameters:
+      - description: Topic ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.GeneralResponse'
+            - properties:
+                data:
+                  type: string
+              type: object
+      security:
+      - JWT: []
+      summary: delete topic
+      tags:
+      - Topic
+    get:
+      consumes:
+      - application/json
+      description: get a specific topic by UUID.
+      parameters:
+      - description: Topic ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.GeneralResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.TopicResponse'
+              type: object
+      summary: get topic
+      tags:
+      - Topic
+    put:
+      consumes:
+      - application/json
+      description: update an existing topic.
+      parameters:
+      - description: Topic ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update Topic Request Body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.UpdateTopicRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.GeneralResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.TopicResponse'
+              type: object
+      security:
+      - JWT: []
+      summary: update topic
+      tags:
+      - Topic
   /api/v1/users/me:
     get:
       consumes:
