@@ -146,7 +146,7 @@ func RequireAuth(allowed []string, config configuration.Config, redisClient *red
 			match := false
 			for _, role := range tokenRoles {
 				for _, allowedRole := range allowed {
-					if role == allowedRole {
+					if strings.EqualFold(role, allowedRole) {
 						match = true
 						break
 					}
