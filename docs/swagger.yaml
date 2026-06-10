@@ -1,5 +1,12 @@
 basePath: /
 definitions:
+  model.ActiveQuestionResponse:
+    properties:
+      isFinished:
+        type: boolean
+      question:
+        $ref: '#/definitions/model.QuestionResponse'
+    type: object
   model.AnswerOptionDto:
     properties:
       content:
@@ -10,6 +17,52 @@ definitions:
         type: boolean
     required:
     - content
+    type: object
+  model.AttemptDetailDto:
+    properties:
+      answeredAt:
+        type: string
+      isCorrect:
+        type: boolean
+      options:
+        items:
+          $ref: '#/definitions/model.AnswerOptionDto'
+        type: array
+      questionContent:
+        type: string
+      questionId:
+        type: string
+      selectedAnswerId:
+        type: string
+    type: object
+  model.AttemptSessionResponse:
+    properties:
+      details:
+        items:
+          $ref: '#/definitions/model.AttemptDetailDto'
+        type: array
+      expiresAt:
+        type: string
+      finishedAt:
+        type: string
+      id:
+        type: string
+      requestedQuestions:
+        type: integer
+      score:
+        type: integer
+      selectedLevel:
+        type: string
+      startedAt:
+        type: string
+      status:
+        type: string
+      topicId:
+        type: string
+      topicName:
+        type: string
+      userId:
+        type: string
     type: object
   model.CreateAnswerOptionDto:
     properties:
@@ -205,6 +258,74 @@ definitions:
       username:
         type: string
     type: object
+  model.StartAttemptRequest:
+    properties:
+      level:
+        enum:
+        - easy
+        - medium
+        - hard
+        type: string
+      requestedQuestions:
+        minimum: 1
+        type: integer
+      topicId:
+        type: string
+    required:
+    - level
+    - requestedQuestions
+    - topicId
+    type: object
+  model.SubmitAnswerRequest:
+    properties:
+      answerId:
+        type: string
+      attemptSessionId:
+        type: string
+      questionId:
+        type: string
+    required:
+    - answerId
+    - attemptSessionId
+    - questionId
+    type: object
+  model.SubmitAnswerResponse:
+    properties:
+      correctAnswerId:
+        type: string
+      isCorrect:
+        type: boolean
+      isFinished:
+        type: boolean
+      score:
+        type: integer
+    type: object
+  model.TopicAttemptInfoResponse:
+    properties:
+      current_attempts:
+        type: integer
+      level_settings:
+        items:
+          $ref: '#/definitions/model.TopicAttemptLevelSetting'
+        type: array
+      max_attempts:
+        type: integer
+      remaining_attempts:
+        type: integer
+    type: object
+  model.TopicAttemptLevelSetting:
+    properties:
+      false_score:
+        type: integer
+      level:
+        type: string
+      remaining_questions:
+        type: integer
+      total_questions:
+        type: integer
+      true_score:
+        type: integer
+    type: object
   model.TopicResponse:
     properties:
       created_at:
@@ -311,6 +432,158 @@ info:
   title: Go Fiber Clean Architecture
   version: 1.0.0
 paths:
+  /api/v1/attempts:
+    get:
+      consumes:
+      - application/json
+      description: gets list of attempt sessions for the user.
+      parameters:
+      - description: Filter by Topic ID
+        in: query
+        name: topicId
+        type: string
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Limit number
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.GeneralResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.AttemptSessionResponse'
+                  type: array
+              type: object
+      security:
+      - JWT: []
+      summary: attempt history list
+      tags:
+      - Attempt
+  /api/v1/attempts/{id}:
+    get:
+      consumes:
+      - application/json
+      description: gets attempt session result/details by ID.
+      parameters:
+      - description: Attempt Session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.GeneralResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.AttemptSessionResponse'
+              type: object
+      security:
+      - JWT: []
+      summary: get attempt detail
+      tags:
+      - Attempt
+  /api/v1/attempts/{id}/next-question:
+    get:
+      consumes:
+      - application/json
+      description: gets the next unanswered question in the attempt session.
+      parameters:
+      - description: Attempt Session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.GeneralResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.ActiveQuestionResponse'
+              type: object
+      security:
+      - JWT: []
+      summary: get active question
+      tags:
+      - Attempt
+  /api/v1/attempts/start:
+    post:
+      consumes:
+      - application/json
+      description: starts a new attempt session.
+      parameters:
+      - description: Start Attempt Request Body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.StartAttemptRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.GeneralResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.AttemptSessionResponse'
+              type: object
+      security:
+      - JWT: []
+      summary: start attempt
+      tags:
+      - Attempt
+  /api/v1/attempts/submit-answer:
+    post:
+      consumes:
+      - application/json
+      description: submits a single answer option and returns correctness/session
+        status.
+      parameters:
+      - description: Submit Answer Request Body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.SubmitAnswerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.GeneralResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.SubmitAnswerResponse'
+              type: object
+      security:
+      - JWT: []
+      summary: submit answer
+      tags:
+      - Attempt
   /api/v1/authentication/login:
     post:
       consumes:
@@ -706,6 +979,34 @@ paths:
       summary: update topic
       tags:
       - Topic
+  /api/v1/topics/{topicId}/attempts/info:
+    get:
+      consumes:
+      - application/json
+      description: gets attempts info & level question counts for a specific topic.
+      parameters:
+      - description: Topic ID
+        in: path
+        name: topicId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.GeneralResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.TopicAttemptInfoResponse'
+              type: object
+      security:
+      - JWT: []
+      summary: topic attempts info
+      tags:
+      - Attempt
   /api/v1/users/me:
     get:
       consumes:

@@ -23,6 +23,269 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/v1/attempts": {
+            "get": {
+                "security": [
+                    {
+                        "JWT": []
+                    }
+                ],
+                "description": "gets list of attempt sessions for the user.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Attempt"
+                ],
+                "summary": "attempt history list",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by Topic ID",
+                        "name": "topicId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit number",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/model.GeneralResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/model.AttemptSessionResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/attempts/start": {
+            "post": {
+                "security": [
+                    {
+                        "JWT": []
+                    }
+                ],
+                "description": "starts a new attempt session.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Attempt"
+                ],
+                "summary": "start attempt",
+                "parameters": [
+                    {
+                        "description": "Start Attempt Request Body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.StartAttemptRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/model.GeneralResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.AttemptSessionResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/attempts/submit-answer": {
+            "post": {
+                "security": [
+                    {
+                        "JWT": []
+                    }
+                ],
+                "description": "submits a single answer option and returns correctness/session status.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Attempt"
+                ],
+                "summary": "submit answer",
+                "parameters": [
+                    {
+                        "description": "Submit Answer Request Body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.SubmitAnswerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/model.GeneralResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.SubmitAnswerResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/attempts/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "JWT": []
+                    }
+                ],
+                "description": "gets attempt session result/details by ID.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Attempt"
+                ],
+                "summary": "get attempt detail",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Attempt Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/model.GeneralResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.AttemptSessionResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/attempts/{id}/next-question": {
+            "get": {
+                "security": [
+                    {
+                        "JWT": []
+                    }
+                ],
+                "description": "gets the next unanswered question in the attempt session.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Attempt"
+                ],
+                "summary": "get active question",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Attempt Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/model.GeneralResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.ActiveQuestionResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/authentication/login": {
             "post": {
                 "description": "login a user.",
@@ -702,6 +965,55 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/topics/{topicId}/attempts/info": {
+            "get": {
+                "security": [
+                    {
+                        "JWT": []
+                    }
+                ],
+                "description": "gets attempts info \u0026 level question counts for a specific topic.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Attempt"
+                ],
+                "summary": "topic attempts info",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Topic ID",
+                        "name": "topicId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/model.GeneralResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.TopicAttemptInfoResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/users/me": {
             "get": {
                 "security": [
@@ -744,6 +1056,17 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "model.ActiveQuestionResponse": {
+            "type": "object",
+            "properties": {
+                "isFinished": {
+                    "type": "boolean"
+                },
+                "question": {
+                    "$ref": "#/definitions/model.QuestionResponse"
+                }
+            }
+        },
         "model.AnswerOptionDto": {
             "type": "object",
             "required": [
@@ -758,6 +1081,76 @@ const docTemplate = `{
                 },
                 "isCorrect": {
                     "type": "boolean"
+                }
+            }
+        },
+        "model.AttemptDetailDto": {
+            "type": "object",
+            "properties": {
+                "answeredAt": {
+                    "type": "string"
+                },
+                "isCorrect": {
+                    "type": "boolean"
+                },
+                "options": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.AnswerOptionDto"
+                    }
+                },
+                "questionContent": {
+                    "type": "string"
+                },
+                "questionId": {
+                    "type": "string"
+                },
+                "selectedAnswerId": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.AttemptSessionResponse": {
+            "type": "object",
+            "properties": {
+                "details": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.AttemptDetailDto"
+                    }
+                },
+                "expiresAt": {
+                    "type": "string"
+                },
+                "finishedAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "requestedQuestions": {
+                    "type": "integer"
+                },
+                "score": {
+                    "type": "integer"
+                },
+                "selectedLevel": {
+                    "type": "string"
+                },
+                "startedAt": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "topicId": {
+                    "type": "string"
+                },
+                "topicName": {
+                    "type": "string"
+                },
+                "userId": {
+                    "type": "string"
                 }
             }
         },
@@ -1040,6 +1433,107 @@ const docTemplate = `{
                 },
                 "username": {
                     "type": "string"
+                }
+            }
+        },
+        "model.StartAttemptRequest": {
+            "type": "object",
+            "required": [
+                "level",
+                "requestedQuestions",
+                "topicId"
+            ],
+            "properties": {
+                "level": {
+                    "type": "string",
+                    "enum": [
+                        "easy",
+                        "medium",
+                        "hard"
+                    ]
+                },
+                "requestedQuestions": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "topicId": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.SubmitAnswerRequest": {
+            "type": "object",
+            "required": [
+                "answerId",
+                "attemptSessionId",
+                "questionId"
+            ],
+            "properties": {
+                "answerId": {
+                    "type": "string"
+                },
+                "attemptSessionId": {
+                    "type": "string"
+                },
+                "questionId": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.SubmitAnswerResponse": {
+            "type": "object",
+            "properties": {
+                "correctAnswerId": {
+                    "type": "string"
+                },
+                "isCorrect": {
+                    "type": "boolean"
+                },
+                "isFinished": {
+                    "type": "boolean"
+                },
+                "score": {
+                    "type": "integer"
+                }
+            }
+        },
+        "model.TopicAttemptInfoResponse": {
+            "type": "object",
+            "properties": {
+                "current_attempts": {
+                    "type": "integer"
+                },
+                "level_settings": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.TopicAttemptLevelSetting"
+                    }
+                },
+                "max_attempts": {
+                    "type": "integer"
+                },
+                "remaining_attempts": {
+                    "type": "integer"
+                }
+            }
+        },
+        "model.TopicAttemptLevelSetting": {
+            "type": "object",
+            "properties": {
+                "false_score": {
+                    "type": "integer"
+                },
+                "level": {
+                    "type": "string"
+                },
+                "remaining_questions": {
+                    "type": "integer"
+                },
+                "total_questions": {
+                    "type": "integer"
+                },
+                "true_score": {
+                    "type": "integer"
                 }
             }
         },

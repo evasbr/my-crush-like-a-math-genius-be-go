@@ -35,6 +35,15 @@ func ErrorHandler(ctx *fiber.Ctx, err error) error {
 		})
 	}
 
+	_, sessionExpired := err.(SessionExpiredError)
+	if sessionExpired {
+		return ctx.Status(fiber.StatusBadRequest).JSON(model.GeneralResponse{
+			Code:    400,
+			Message: "Session Expired",
+			Data:    err.Error(),
+		})
+	}
+
 	_, notFoundError := err.(NotFoundError)
 	if notFoundError {
 		return ctx.Status(fiber.StatusNotFound).JSON(model.GeneralResponse{

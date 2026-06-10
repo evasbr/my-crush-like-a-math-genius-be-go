@@ -28,6 +28,7 @@ func BuildApp(config configuration.Config, database *gorm.DB, redis *redis.Clien
 	authRepository := repository.NewAuthRepositoryImpl(database)
 	topicRepository := repository.NewTopicRepositoryImpl(database)
 	questionRepository := repository.NewQuestionRepositoryImpl(database)
+	attemptRepository := repository.NewAttemptRepositoryImpl(database)
 
 	//rest client
 	httpBinRestClient := restclient.NewHttpBinRestClient()
@@ -38,6 +39,7 @@ func BuildApp(config configuration.Config, database *gorm.DB, redis *redis.Clien
 	httpBinService := service.NewHttpBinServiceImpl(&httpBinRestClient)
 	topicService := service.NewTopicServiceImpl(&topicRepository)
 	questionService := service.NewQuestionServiceImpl(&questionRepository)
+	attemptService := service.NewAttemptServiceImpl(&attemptRepository, &topicRepository)
 
 	//controller
 	userController := controller.NewUserController(&userService, config, redis)
@@ -45,6 +47,7 @@ func BuildApp(config configuration.Config, database *gorm.DB, redis *redis.Clien
 	httpBinController := controller.NewHttpBinController(&httpBinService)
 	topicController := controller.NewTopicController(&topicService, config, redis)
 	questionController := controller.NewQuestionController(&questionService, config, redis)
+	attemptController := controller.NewAttemptController(&attemptService, config, redis)
 
 	//setup fiber
 	app := fiber.New(configuration.NewFiberConfiguration())
@@ -71,6 +74,7 @@ func BuildApp(config configuration.Config, database *gorm.DB, redis *redis.Clien
 	httpBinController.Route(api)
 	topicController.Route(api)
 	questionController.Route(api)
+	attemptController.Route(api)
 
 	//swagger
 	docs.SwaggerInfo.Host = ""
