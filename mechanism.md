@@ -193,3 +193,93 @@ Waktu pengerjaan bersifat absolut berdasarkan server. Jika timer global (berdasa
     - `topicId`: untuk memfilter histori pada topik tertentu saja.
     - `page` dan `limit`: pagination.
 *   **Response**: Mengembalikan list attempt milik user yang sedang login beserta skor dan status kelulusannya secara global.
+
+---
+
+## 6. Filter Topik Berdasarkan Classroom
+Ketika menampilkan daftar topik di halaman kelas tertentu, filter topik berdasarkan classroom ID wajib dikirimkan.
+*   **Endpoint**: `GET /api/v1/topics`
+*   **Query Params**:
+    - `classroomId` (Optional): UUID classroom untuk menyaring topik yang masuk ke dalam kelas tersebut.
+
+---
+
+## 7. Leaderboard & Peringkat Kelas
+Leaderboard menampilkan peringkat siswa berdasarkan akumulasi nilai kuis di kelas (hanya pengguna dengan role `student` yang diperhitungkan).
+*   **Endpoint**: `GET /api/v1/leaderboard`
+*   **Query Params**:
+    - `classroomId` (Required): UUID classroom.
+    - `topicId` (Optional): UUID topic. Jika dikirimkan, leaderboard hanya menghitung skor tertinggi untuk topik tersebut. Jika dikosongkan, leaderboard menghitung akumulasi total skor tertinggi tiap topik di kelas (Global Kelas).
+*   **Response**:
+    ```json
+    {
+      "code": 200,
+      "message": "Success",
+      "data": [
+        {
+          "user_id": "uuid-siswa-1",
+          "username": "siswa_kece",
+          "first_name": "Budi",
+          "last_name": "Setiawan",
+          "profile_picture_url": "https://res.cloudinary.com/...",
+          "score": 1200,
+          "rank": 1
+        },
+        {
+          "user_id": "uuid-siswa-2",
+          "username": "siswi_pintar",
+          "first_name": "Ani",
+          "last_name": null,
+          "profile_picture_url": null,
+          "score": 950,
+          "rank": 2
+        }
+      ]
+    }
+    ```
+
+---
+
+## 8. Manajemen Member Kelas & Keluar Kelas
+
+### A. Keluar dari Classroom (Leave Classroom)
+Siswa atau pengajar dapat keluar dari kelas secara mandiri. Owner kelas dilarang menggunakan endpoint ini (harus transfer ownership atau menghapus kelas).
+*   **Endpoint**: `POST /api/v1/classrooms/:classroomId/leave`
+*   **Response**:
+    ```json
+    {
+      "code": 200,
+      "message": "Success",
+      "data": "Successfully left the classroom"
+    }
+    ```
+
+### B. Update Role Member (Hanya untuk Owner)
+Owner kelas dapat mempromosikan/mendemosikan member lain (menjadi `teacher` atau `student`).
+*   **Endpoint**: `PUT /api/v1/classrooms/:classroomId/members/:userId`
+*   **Request Body**:
+    ```json
+    {
+      "role": "teacher" // ATAU "student"
+    }
+    ```
+*   **Response**:
+    ```json
+    {
+      "code": 200,
+      "message": "Success",
+      "data": "Member role updated successfully"
+    }
+    ```
+
+### C. Mengeluarkan Member / Kick (Oleh Owner / Teacher)
+Mengeluarkan member dari classroom. Teacher dilarang mengeluarkan sesama teacher atau owner.
+*   **Endpoint**: `DELETE /api/v1/classrooms/:classroomId/members/:userId`
+*   **Response**:
+    ```json
+    {
+      "code": 200,
+      "message": "Success",
+      "data": "Member removed successfully"
+    }
+    ```

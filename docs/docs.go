@@ -458,6 +458,671 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/classrooms": {
+            "get": {
+                "security": [
+                    {
+                        "JWT": []
+                    }
+                ],
+                "description": "list all classrooms.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Classroom"
+                ],
+                "summary": "list classrooms",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/model.GeneralResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/model.ClassroomResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "JWT": []
+                    }
+                ],
+                "description": "create a new classroom.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Classroom"
+                ],
+                "summary": "create classroom",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Classroom Name",
+                        "name": "name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Description",
+                        "name": "description",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Enable External Invite",
+                        "name": "is_external_invite_enable",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "Cover image file (JPEG, PNG, WebP, max 1MB)",
+                        "name": "cover_img",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "Wallpaper image file (JPEG, PNG, WebP, max 1MB)",
+                        "name": "wallpaper_img",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/model.GeneralResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.ClassroomResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/classrooms/join": {
+            "post": {
+                "security": [
+                    {
+                        "JWT": []
+                    }
+                ],
+                "description": "join classroom by code.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Classroom"
+                ],
+                "summary": "join classroom",
+                "parameters": [
+                    {
+                        "description": "Join Classroom Request Body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.JoinClassroomRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/model.GeneralResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.ClassroomResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/classrooms/me": {
+            "get": {
+                "security": [
+                    {
+                        "JWT": []
+                    }
+                ],
+                "description": "list user's classrooms.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Classroom"
+                ],
+                "summary": "list my classrooms",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/model.GeneralResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/model.ClassroomResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/classrooms/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "JWT": []
+                    }
+                ],
+                "description": "get a specific classroom by UUID (user must be a member or admin).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Classroom"
+                ],
+                "summary": "get classroom",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Classroom ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/model.GeneralResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.ClassroomResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "JWT": []
+                    }
+                ],
+                "description": "update an existing classroom.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Classroom"
+                ],
+                "summary": "update classroom",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Classroom ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Classroom Name",
+                        "name": "name",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Description",
+                        "name": "description",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Enable External Invite",
+                        "name": "is_external_invite_enable",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Status",
+                        "name": "status",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "Cover image file (JPEG, PNG, WebP, max 1MB)",
+                        "name": "cover_img",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "Wallpaper image file (JPEG, PNG, WebP, max 1MB)",
+                        "name": "wallpaper_img",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/model.GeneralResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.ClassroomResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "JWT": []
+                    }
+                ],
+                "description": "delete a classroom by UUID.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Classroom"
+                ],
+                "summary": "delete classroom",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Classroom ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/model.GeneralResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/classrooms/{id}/leave": {
+            "post": {
+                "security": [
+                    {
+                        "JWT": []
+                    }
+                ],
+                "description": "leave classroom.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Classroom"
+                ],
+                "summary": "leave classroom",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Classroom ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/model.GeneralResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/classrooms/{id}/members": {
+            "get": {
+                "security": [
+                    {
+                        "JWT": []
+                    }
+                ],
+                "description": "list classroom members.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Classroom"
+                ],
+                "summary": "list classroom members",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Classroom ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/model.GeneralResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/model.ClassroomMemberResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/classrooms/{id}/members/{userId}": {
+            "put": {
+                "security": [
+                    {
+                        "JWT": []
+                    }
+                ],
+                "description": "update classroom member role.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Classroom"
+                ],
+                "summary": "update classroom member role",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Classroom ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "User ID to update",
+                        "name": "userId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request Body",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.UpdateMemberRoleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/model.GeneralResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "JWT": []
+                    }
+                ],
+                "description": "kick classroom member.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Classroom"
+                ],
+                "summary": "kick classroom member",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Classroom ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "User ID to kick",
+                        "name": "userId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/model.GeneralResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/leaderboard": {
+            "get": {
+                "security": [
+                    {
+                        "JWT": []
+                    }
+                ],
+                "description": "get classroom leaderboard.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Leaderboard"
+                ],
+                "summary": "get classroom leaderboard",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Classroom ID",
+                        "name": "classroomId",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by Topic ID",
+                        "name": "topicId",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/model.GeneralResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/model.LeaderboardEntry"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/questions": {
             "get": {
                 "description": "list all questions.",
@@ -476,7 +1141,8 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Filter by topic ID",
                         "name": "topicId",
-                        "in": "query"
+                        "in": "query",
+                        "required": true
                     },
                     {
                         "type": "integer",
@@ -742,6 +1408,12 @@ const docTemplate = `{
                         "description": "Limit number",
                         "name": "limit",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by Classroom ID",
+                        "name": "classroomId",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -776,7 +1448,7 @@ const docTemplate = `{
                 ],
                 "description": "create a new topic.",
                 "consumes": [
-                    "application/json"
+                    "multipart/form-data"
                 ],
                 "produces": [
                     "application/json"
@@ -787,13 +1459,101 @@ const docTemplate = `{
                 "summary": "create topic",
                 "parameters": [
                     {
-                        "description": "Create Topic Request Body",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/model.CreateTopicRequest"
-                        }
+                        "type": "string",
+                        "description": "Classroom ID",
+                        "name": "classroom_id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Topic Name",
+                        "name": "name",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Description",
+                        "name": "description",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Female Normal Dialog",
+                        "name": "female_normal_dialog",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Male Normal Dialog",
+                        "name": "male_normal_dialog",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Female Dating Dialog",
+                        "name": "female_dating_dialog",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Male Dating Dialog",
+                        "name": "male_dating_dialog",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Status",
+                        "name": "status",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Level Settings JSON Array",
+                        "name": "level_settings",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Max Attempts",
+                        "name": "max_attempts",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Female Normal image file (JPEG, PNG, WebP, max 1MB)",
+                        "name": "female_normal_img",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Male Normal image file (JPEG, PNG, WebP, max 1MB)",
+                        "name": "male_normal_img",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Female Dating image file (JPEG, PNG, WebP, max 1MB)",
+                        "name": "female_dating_img",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Male Dating image file (JPEG, PNG, WebP, max 1MB)",
+                        "name": "male_dating_img",
+                        "in": "formData",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -869,7 +1629,7 @@ const docTemplate = `{
                 ],
                 "description": "update an existing topic.",
                 "consumes": [
-                    "application/json"
+                    "multipart/form-data"
                 ],
                 "produces": [
                     "application/json"
@@ -887,13 +1647,88 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Update Topic Request Body",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/model.UpdateTopicRequest"
-                        }
+                        "type": "string",
+                        "description": "Classroom ID",
+                        "name": "classroom_id",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Topic Name",
+                        "name": "name",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Description",
+                        "name": "description",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Female Normal Dialog",
+                        "name": "female_normal_dialog",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Male Normal Dialog",
+                        "name": "male_normal_dialog",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Female Dating Dialog",
+                        "name": "female_dating_dialog",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Male Dating Dialog",
+                        "name": "male_dating_dialog",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Status",
+                        "name": "status",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Level Settings JSON Array",
+                        "name": "level_settings",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Max Attempts",
+                        "name": "max_attempts",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "Female Normal image file (JPEG, PNG, WebP, max 1MB)",
+                        "name": "female_normal_img",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "Male Normal image file (JPEG, PNG, WebP, max 1MB)",
+                        "name": "male_normal_img",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "Female Dating image file (JPEG, PNG, WebP, max 1MB)",
+                        "name": "female_dating_img",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "Male Dating image file (JPEG, PNG, WebP, max 1MB)",
+                        "name": "male_dating_img",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -1203,6 +2038,61 @@ const docTemplate = `{
                 }
             }
         },
+        "model.ClassroomMemberResponse": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "first_name": {
+                    "type": "string"
+                },
+                "last_name": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.ClassroomResponse": {
+            "type": "object",
+            "properties": {
+                "codes": {
+                    "type": "string"
+                },
+                "cover_img": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_external_invite_enable": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "wallpaper_img": {
+                    "type": "string"
+                }
+            }
+        },
         "model.CreateAnswerOptionDto": {
             "type": "object",
             "required": [
@@ -1270,29 +2160,6 @@ const docTemplate = `{
                 }
             }
         },
-        "model.CreateTopicRequest": {
-            "type": "object",
-            "required": [
-                "level_settings",
-                "max_attempts",
-                "name"
-            ],
-            "properties": {
-                "level_settings": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/model.LevelSettingDto"
-                    }
-                },
-                "max_attempts": {
-                    "type": "integer",
-                    "minimum": 1
-                },
-                "name": {
-                    "type": "string"
-                }
-            }
-        },
         "model.GeneralResponse": {
             "type": "object",
             "properties": {
@@ -1302,6 +2169,43 @@ const docTemplate = `{
                 "data": {},
                 "errors": {},
                 "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.JoinClassroomRequest": {
+            "type": "object",
+            "required": [
+                "code"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.LeaderboardEntry": {
+            "type": "object",
+            "properties": {
+                "first_name": {
+                    "type": "string"
+                },
+                "last_name": {
+                    "type": "string"
+                },
+                "profile_picture_url": {
+                    "type": "string"
+                },
+                "rank": {
+                    "type": "integer"
+                },
+                "score": {
+                    "type": "integer"
+                },
+                "user_id": {
+                    "type": "string"
+                },
+                "username": {
                     "type": "string"
                 }
             }
@@ -1583,7 +2487,25 @@ const docTemplate = `{
         "model.TopicResponse": {
             "type": "object",
             "properties": {
+                "classroom_id": {
+                    "type": "string"
+                },
                 "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "female_dating_dialog": {
+                    "type": "string"
+                },
+                "female_dating_img": {
+                    "type": "string"
+                },
+                "female_normal_dialog": {
+                    "type": "string"
+                },
+                "female_normal_img": {
                     "type": "string"
                 },
                 "id": {
@@ -1595,14 +2517,44 @@ const docTemplate = `{
                         "$ref": "#/definitions/model.LevelSettingDto"
                     }
                 },
+                "male_dating_dialog": {
+                    "type": "string"
+                },
+                "male_dating_img": {
+                    "type": "string"
+                },
+                "male_normal_dialog": {
+                    "type": "string"
+                },
+                "male_normal_img": {
+                    "type": "string"
+                },
                 "max_attempts": {
                     "type": "integer"
                 },
                 "name": {
                     "type": "string"
                 },
+                "status": {
+                    "type": "string"
+                },
                 "updated_at": {
                     "type": "string"
+                }
+            }
+        },
+        "model.UpdateMemberRoleRequest": {
+            "type": "object",
+            "required": [
+                "role"
+            ],
+            "properties": {
+                "role": {
+                    "type": "string",
+                    "enum": [
+                        "teacher",
+                        "student"
+                    ]
                 }
             }
         },
@@ -1627,29 +2579,6 @@ const docTemplate = `{
                 "timeLimit": {
                     "type": "integer",
                     "minimum": 1
-                }
-            }
-        },
-        "model.UpdateTopicRequest": {
-            "type": "object",
-            "required": [
-                "level_settings",
-                "max_attempts",
-                "name"
-            ],
-            "properties": {
-                "level_settings": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/model.LevelSettingDto"
-                    }
-                },
-                "max_attempts": {
-                    "type": "integer",
-                    "minimum": 1
-                },
-                "name": {
-                    "type": "string"
                 }
             }
         },

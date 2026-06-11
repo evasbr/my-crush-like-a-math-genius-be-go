@@ -31,6 +31,7 @@ func BuildApp(config configuration.Config, database *gorm.DB, redis *redis.Clien
 	topicRepository := repository.NewTopicRepositoryImpl(database)
 	questionRepository := repository.NewQuestionRepositoryImpl(database)
 	attemptRepository := repository.NewAttemptRepositoryImpl(database)
+	classroomRepository := repository.NewClassroomRepositoryImpl(database)
 
 	//rest client
 	httpBinRestClient := restclient.NewHttpBinRestClient()
@@ -43,9 +44,10 @@ func BuildApp(config configuration.Config, database *gorm.DB, redis *redis.Clien
 	userService := service.NewUserServiceImpl(&userRepository, fileStorage)
 	authService := service.NewAuthServiceImpl(&userRepository, &authRepository, redis, config)
 	httpBinService := service.NewHttpBinServiceImpl(&httpBinRestClient)
-	topicService := service.NewTopicServiceImpl(&topicRepository)
+	topicService := service.NewTopicServiceImpl(&topicRepository, fileStorage)
 	questionService := service.NewQuestionServiceImpl(&questionRepository)
 	attemptService := service.NewAttemptServiceImpl(&attemptRepository, &topicRepository)
+	classroomService := service.NewClassroomServiceImpl(&classroomRepository, fileStorage)
 
 	//controller
 	userController := controller.NewUserController(&userService, config, redis)
@@ -54,6 +56,8 @@ func BuildApp(config configuration.Config, database *gorm.DB, redis *redis.Clien
 	topicController := controller.NewTopicController(&topicService, config, redis)
 	questionController := controller.NewQuestionController(&questionService, config, redis)
 	attemptController := controller.NewAttemptController(&attemptService, config, redis)
+	classroomController := controller.NewClassroomController(&classroomService, config, redis)
+	leaderboardController := controller.NewLeaderboardController(&classroomService, config, redis)
 
 	//setup fiber
 	app := fiber.New(configuration.NewFiberConfiguration())
@@ -81,6 +85,8 @@ func BuildApp(config configuration.Config, database *gorm.DB, redis *redis.Clien
 	topicController.Route(api)
 	questionController.Route(api)
 	attemptController.Route(api)
+	classroomController.Route(api)
+	leaderboardController.Route(api)
 
 	//swagger
 	docs.SwaggerInfo.Host = ""
