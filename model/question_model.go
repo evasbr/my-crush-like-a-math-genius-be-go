@@ -41,7 +41,7 @@ type QuestionResponse struct {
 }
 
 type QuestionFilter struct {
-	TopicID string `query:"topicId"`
+	TopicID string `query:"topicId" validate:"required,uuid"`
 	Page    int    `query:"page"`
 	Limit   int    `query:"limit"`
 }

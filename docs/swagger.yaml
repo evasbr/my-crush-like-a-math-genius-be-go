@@ -163,6 +163,23 @@ definitions:
     required:
     - code
     type: object
+  model.LeaderboardEntry:
+    properties:
+      first_name:
+        type: string
+      last_name:
+        type: string
+      profile_picture_url:
+        type: string
+      rank:
+        type: integer
+      score:
+        type: integer
+      user_id:
+        type: string
+      username:
+        type: string
+    type: object
   model.LevelSettingDto:
     properties:
       false_score:
@@ -387,6 +404,16 @@ definitions:
         type: string
       updated_at:
         type: string
+    type: object
+  model.UpdateMemberRoleRequest:
+    properties:
+      role:
+        enum:
+        - teacher
+        - student
+        type: string
+    required:
+    - role
     type: object
   model.UpdateQuestionRequest:
     properties:
@@ -884,6 +911,34 @@ paths:
       summary: update classroom
       tags:
       - Classroom
+  /api/v1/classrooms/{id}/leave:
+    post:
+      consumes:
+      - application/json
+      description: leave classroom.
+      parameters:
+      - description: Classroom ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.GeneralResponse'
+            - properties:
+                data:
+                  type: string
+              type: object
+      security:
+      - JWT: []
+      summary: leave classroom
+      tags:
+      - Classroom
   /api/v1/classrooms/{id}/members:
     get:
       consumes:
@@ -912,6 +967,77 @@ paths:
       security:
       - JWT: []
       summary: list classroom members
+      tags:
+      - Classroom
+  /api/v1/classrooms/{id}/members/{userId}:
+    delete:
+      consumes:
+      - application/json
+      description: kick classroom member.
+      parameters:
+      - description: Classroom ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: User ID to kick
+        in: path
+        name: userId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.GeneralResponse'
+            - properties:
+                data:
+                  type: string
+              type: object
+      security:
+      - JWT: []
+      summary: kick classroom member
+      tags:
+      - Classroom
+    put:
+      consumes:
+      - application/json
+      description: update classroom member role.
+      parameters:
+      - description: Classroom ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: User ID to update
+        in: path
+        name: userId
+        required: true
+        type: string
+      - description: Request Body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.UpdateMemberRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.GeneralResponse'
+            - properties:
+                data:
+                  type: string
+              type: object
+      security:
+      - JWT: []
+      summary: update classroom member role
       tags:
       - Classroom
   /api/v1/classrooms/join:
@@ -967,6 +1093,40 @@ paths:
       summary: list my classrooms
       tags:
       - Classroom
+  /api/v1/leaderboard:
+    get:
+      consumes:
+      - application/json
+      description: get classroom leaderboard.
+      parameters:
+      - description: Classroom ID
+        in: query
+        name: classroomId
+        required: true
+        type: string
+      - description: Filter by Topic ID
+        in: query
+        name: topicId
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.GeneralResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.LeaderboardEntry'
+                  type: array
+              type: object
+      security:
+      - JWT: []
+      summary: get classroom leaderboard
+      tags:
+      - Leaderboard
   /api/v1/questions:
     get:
       consumes:
@@ -976,6 +1136,7 @@ paths:
       - description: Filter by topic ID
         in: query
         name: topicId
+        required: true
         type: string
       - description: Page number
         in: query

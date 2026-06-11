@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"evasbr/mclamg/entity"
+	"evasbr/mclamg/model"
 	"evasbr/mclamg/repository"
 
 	"github.com/google/uuid"
@@ -150,4 +151,78 @@ func (r *classroomRepositoryImpl) FindUserRoles(ctx context.Context, userID uuid
 		return nil, err
 	}
 	return roles, nil
+}
+
+func (r *classroomRepositoryImpl) UpdateMemberRole(ctx context.Context, classroomID uuid.UUID, userID uuid.UUID, role entity.ClassroomRoleType) error {
+	result := r.DB.WithContext(ctx).
+		Model(&entity.ClassroomRole{}).
+		Where("classroom_id = ? AND user_id = ?", classroomID, userID).
+		Update("role", role)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return errors.New("membership not found")
+	}
+	return nil
+}
+
+func (r *classroomRepositoryImpl) RemoveMember(ctx context.Context, classroomID uuid.UUID, userID uuid.UUID) error {
+	result := r.DB.WithContext(ctx).
+		Where("classroom_id = ? AND user_id = ?", classroomID, userID).
+		Delete(&entity.ClassroomRole{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return errors.New("membership not found")
+	}
+	return nil
+}
+
+func (r *classroomRepositoryImpl) GetLeaderboard(ctx context.Context, classroomID uuid.UUID, topicID *uuid.UUID) ([]model.LeaderboardEntry, error) {
+	var results []model.LeaderboardEntry
+
+	if topicID != nil {
+		sqlQuery := `
+			SELECT u.id as user_id, COALESCE(auth.provider_user_id, u.email) as username, u.first_name, u.last_name, u.profile_picture_url, COALESCE(MAX(as_sessions.score), 0) as score
+			FROM users u
+			JOIN classroom_roles cr ON cr.user_id = u.id AND cr.classroom_id = ? AND cr.role = 'student' AND cr.deleted_at IS NULL
+			LEFT JOIN authentications auth ON auth.user_id = u.id AND auth.method = 'local_username' AND auth.deleted_at IS NULL
+			LEFT JOIN attempt_sessions as_sessions ON as_sessions.user_id = u.id AND as_sessions.topic_id = ? AND as_sessions.status = 'FINISHED' AND as_sessions.score IS NOT NULL
+			GROUP BY u.id, auth.provider_user_id, u.email, u.first_name, u.last_name, u.profile_picture_url
+			ORDER BY score DESC, username ASC
+		`
+		err := r.DB.WithContext(ctx).Raw(sqlQuery, classroomID, *topicID).Scan(&results).Error
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		sqlQuery := `
+			WITH user_topic_max AS (
+				SELECT as_sessions.user_id, as_sessions.topic_id, MAX(as_sessions.score) as max_score
+				FROM attempt_sessions as_sessions
+				JOIN topics t ON as_sessions.topic_id = t.id
+				WHERE t.classroom_id = ? AND as_sessions.status = 'FINISHED' AND as_sessions.score IS NOT NULL
+				GROUP BY as_sessions.user_id, as_sessions.topic_id
+			)
+			SELECT u.id as user_id, COALESCE(auth.provider_user_id, u.email) as username, u.first_name, u.last_name, u.profile_picture_url, COALESCE(SUM(utm.max_score), 0) as score
+			FROM users u
+			JOIN classroom_roles cr ON cr.user_id = u.id AND cr.classroom_id = ? AND cr.role = 'student' AND cr.deleted_at IS NULL
+			LEFT JOIN authentications auth ON auth.user_id = u.id AND auth.method = 'local_username' AND auth.deleted_at IS NULL
+			LEFT JOIN user_topic_max utm ON utm.user_id = u.id
+			GROUP BY u.id, auth.provider_user_id, u.email, u.first_name, u.last_name, u.profile_picture_url
+			ORDER BY score DESC, username ASC
+		`
+		err := r.DB.WithContext(ctx).Raw(sqlQuery, classroomID, classroomID).Scan(&results).Error
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	for i := range results {
+		results[i].Rank = i + 1
+	}
+
+	return results, nil
 }

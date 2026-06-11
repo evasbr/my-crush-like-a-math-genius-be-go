@@ -77,7 +77,7 @@ func (controller *QuestionController) checkIsSuperAdmin(c *fiber.Ctx) bool {
 // @Tags Question
 // @Accept json
 // @Produce json
-// @Param topicId query string false "Filter by topic ID"
+// @Param topicId query string true "Filter by topic ID"
 // @Param page query int false "Page number"
 // @Param limit query int false "Limit number"
 // @Success 200 {object} model.GeneralResponse{data=[]model.QuestionResponse}
@@ -91,6 +91,8 @@ func (controller *QuestionController) FindAll(c *fiber.Ctx) error {
 			Data:    err.Error(),
 		})
 	}
+
+	common.Validate(filter)
 
 	includeIsCorrect := controller.checkIsSuperAdmin(c)
 

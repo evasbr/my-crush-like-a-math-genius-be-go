@@ -471,3 +471,147 @@ func (s *classroomServiceImpl) toClassroomResponse(c entity.Classroom, showSecur
 		UpdatedAt:              c.UpdatedAt.Format(time.RFC3339),
 	}
 }
+
+func (s *classroomServiceImpl) UpdateMemberRole(ctx context.Context, classroomID string, targetUserID string, request model.UpdateMemberRoleRequest, currentUserID string, isSuperAdmin bool) error {
+	common.Validate(request)
+
+	parsedClassroomID, err := uuid.Parse(classroomID)
+	if err != nil {
+		return exception.ValidationError{Message: "invalid classroom ID format"}
+	}
+	parsedTargetUserID, err := uuid.Parse(targetUserID)
+	if err != nil {
+		return exception.ValidationError{Message: "invalid target user ID format"}
+	}
+	parsedCurrentUserID, err := uuid.Parse(currentUserID)
+	if err != nil {
+		return exception.ValidationError{Message: "invalid current user ID format"}
+	}
+
+	_, err = s.ClassroomRepository.FindByID(ctx, parsedClassroomID)
+	if err != nil {
+		return exception.NotFoundError{Message: "classroom not found"}
+	}
+
+	if !isSuperAdmin {
+		currentUserRole, err := s.ClassroomRepository.FindUserRole(ctx, parsedClassroomID, parsedCurrentUserID)
+		if err != nil || currentUserRole.Role != entity.RoleOwner {
+			return exception.ValidationError{Message: "only the classroom owner can change member roles"}
+		}
+	}
+
+	targetUserRole, err := s.ClassroomRepository.FindUserRole(ctx, parsedClassroomID, parsedTargetUserID)
+	if err != nil {
+		return exception.NotFoundError{Message: "target user is not a member of this classroom"}
+	}
+	if targetUserRole.Role == entity.RoleOwner {
+		return exception.ValidationError{Message: "cannot change the role of the classroom owner"}
+	}
+
+	return s.ClassroomRepository.UpdateMemberRole(ctx, parsedClassroomID, parsedTargetUserID, entity.ClassroomRoleType(request.Role))
+}
+
+func (s *classroomServiceImpl) RemoveMember(ctx context.Context, classroomID string, targetUserID string, currentUserID string, isSuperAdmin bool) error {
+	parsedClassroomID, err := uuid.Parse(classroomID)
+	if err != nil {
+		return exception.ValidationError{Message: "invalid classroom ID format"}
+	}
+	parsedTargetUserID, err := uuid.Parse(targetUserID)
+	if err != nil {
+		return exception.ValidationError{Message: "invalid target user ID format"}
+	}
+	parsedCurrentUserID, err := uuid.Parse(currentUserID)
+	if err != nil {
+		return exception.ValidationError{Message: "invalid current user ID format"}
+	}
+
+	_, err = s.ClassroomRepository.FindByID(ctx, parsedClassroomID)
+	if err != nil {
+		return exception.NotFoundError{Message: "classroom not found"}
+	}
+
+	var curRole entity.ClassroomRoleType
+	if !isSuperAdmin {
+		currentUserRole, err := s.ClassroomRepository.FindUserRole(ctx, parsedClassroomID, parsedCurrentUserID)
+		if err != nil || (currentUserRole.Role != entity.RoleOwner && currentUserRole.Role != entity.RoleTeacher) {
+			return exception.ValidationError{Message: "only the classroom owner or teacher can kick members"}
+		}
+		curRole = currentUserRole.Role
+	}
+
+	targetUserRole, err := s.ClassroomRepository.FindUserRole(ctx, parsedClassroomID, parsedTargetUserID)
+	if err != nil {
+		return exception.NotFoundError{Message: "target user is not a member of this classroom"}
+	}
+
+	if targetUserRole.Role == entity.RoleOwner {
+		return exception.ValidationError{Message: "cannot kick the classroom owner"}
+	}
+
+	if !isSuperAdmin && curRole == entity.RoleTeacher && targetUserRole.Role == entity.RoleTeacher {
+		return exception.ValidationError{Message: "teachers cannot kick other teachers"}
+	}
+
+	return s.ClassroomRepository.RemoveMember(ctx, parsedClassroomID, parsedTargetUserID)
+}
+
+func (s *classroomServiceImpl) LeaveClassroom(ctx context.Context, classroomID string, currentUserID string) error {
+	parsedClassroomID, err := uuid.Parse(classroomID)
+	if err != nil {
+		return exception.ValidationError{Message: "invalid classroom ID format"}
+	}
+	parsedCurrentUserID, err := uuid.Parse(currentUserID)
+	if err != nil {
+		return exception.ValidationError{Message: "invalid current user ID format"}
+	}
+
+	_, err = s.ClassroomRepository.FindByID(ctx, parsedClassroomID)
+	if err != nil {
+		return exception.NotFoundError{Message: "classroom not found"}
+	}
+
+	currentUserRole, err := s.ClassroomRepository.FindUserRole(ctx, parsedClassroomID, parsedCurrentUserID)
+	if err != nil {
+		return exception.NotFoundError{Message: "you are not a member of this classroom"}
+	}
+
+	if currentUserRole.Role == entity.RoleOwner {
+		return exception.ValidationError{Message: "the owner cannot leave the classroom. Please delete the classroom instead or transfer ownership"}
+	}
+
+	return s.ClassroomRepository.RemoveMember(ctx, parsedClassroomID, parsedCurrentUserID)
+}
+
+func (s *classroomServiceImpl) GetLeaderboard(ctx context.Context, classroomID string, topicIDStr string, currentUserID string, isSuperAdmin bool) ([]model.LeaderboardEntry, error) {
+	parsedClassroomID, err := uuid.Parse(classroomID)
+	if err != nil {
+		return nil, exception.ValidationError{Message: "invalid classroom ID format"}
+	}
+	parsedCurrentUserID, err := uuid.Parse(currentUserID)
+	if err != nil {
+		return nil, exception.ValidationError{Message: "invalid user ID format"}
+	}
+
+	_, err = s.ClassroomRepository.FindByID(ctx, parsedClassroomID)
+	if err != nil {
+		return nil, exception.NotFoundError{Message: "classroom not found"}
+	}
+
+	if !isSuperAdmin {
+		_, err = s.ClassroomRepository.FindUserRole(ctx, parsedClassroomID, parsedCurrentUserID)
+		if err != nil {
+			return nil, exception.ValidationError{Message: "only members of this classroom can view the leaderboard"}
+		}
+	}
+
+	var topicID *uuid.UUID
+	if topicIDStr != "" {
+		parsedTopicID, err := uuid.Parse(topicIDStr)
+		if err != nil {
+			return nil, exception.ValidationError{Message: "invalid topic ID format"}
+		}
+		topicID = &parsedTopicID
+	}
+
+	return s.ClassroomRepository.GetLeaderboard(ctx, parsedClassroomID, topicID)
+}

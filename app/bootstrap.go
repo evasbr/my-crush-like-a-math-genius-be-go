@@ -57,6 +57,7 @@ func BuildApp(config configuration.Config, database *gorm.DB, redis *redis.Clien
 	questionController := controller.NewQuestionController(&questionService, config, redis)
 	attemptController := controller.NewAttemptController(&attemptService, config, redis)
 	classroomController := controller.NewClassroomController(&classroomService, config, redis)
+	leaderboardController := controller.NewLeaderboardController(&classroomService, config, redis)
 
 	//setup fiber
 	app := fiber.New(configuration.NewFiberConfiguration())
@@ -85,6 +86,7 @@ func BuildApp(config configuration.Config, database *gorm.DB, redis *redis.Clien
 	questionController.Route(api)
 	attemptController.Route(api)
 	classroomController.Route(api)
+	leaderboardController.Route(api)
 
 	//swagger
 	docs.SwaggerInfo.Host = ""

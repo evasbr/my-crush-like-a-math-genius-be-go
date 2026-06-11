@@ -41,3 +41,17 @@ type ClassroomMemberResponse struct {
 	LastName  string `json:"last_name"`
 	Role      string `json:"role"`
 }
+
+type UpdateMemberRoleRequest struct {
+	Role string `json:"role" form:"role" validate:"required,oneof=teacher student"`
+}
+
+type LeaderboardEntry struct {
+	UserID            string  `json:"user_id"`
+	Username          string  `json:"username"`
+	FirstName         string  `json:"first_name"`
+	LastName          *string `json:"last_name"`
+	ProfilePictureURL *string `json:"profile_picture_url"`
+	Score             int     `json:"score"`
+	Rank              int     `json:"rank"`
+}

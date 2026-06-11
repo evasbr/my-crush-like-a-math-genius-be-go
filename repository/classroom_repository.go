@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"evasbr/mclamg/entity"
+	"evasbr/mclamg/model"
 
 	"github.com/google/uuid"
 )
@@ -19,4 +20,7 @@ type ClassroomRepository interface {
 	FindMembers(ctx context.Context, classroomID uuid.UUID) ([]entity.ClassroomRole, error)
 	FindUserRole(ctx context.Context, classroomID uuid.UUID, userID uuid.UUID) (entity.ClassroomRole, error)
 	FindUserRoles(ctx context.Context, userID uuid.UUID) ([]entity.ClassroomRole, error)
+	UpdateMemberRole(ctx context.Context, classroomID uuid.UUID, userID uuid.UUID, role entity.ClassroomRoleType) error
+	RemoveMember(ctx context.Context, classroomID uuid.UUID, userID uuid.UUID) error
+	GetLeaderboard(ctx context.Context, classroomID uuid.UUID, topicID *uuid.UUID) ([]model.LeaderboardEntry, error)
 }

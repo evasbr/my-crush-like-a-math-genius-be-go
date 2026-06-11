@@ -46,6 +46,9 @@ func (controller *ClassroomController) Route(router fiber.Router) {
 	classrooms.Get("/:id", requireAuth, controller.FindByID)
 	classrooms.Post("/join", requireAuth, controller.JoinByCode)
 	classrooms.Get("/:id/members", requireAuth, controller.ListMembers)
+	classrooms.Put("/:id/members/:userId", requireAuth, controller.UpdateMemberRole)
+	classrooms.Delete("/:id/members/:userId", requireAuth, controller.RemoveMember)
+	classrooms.Post("/:id/leave", requireAuth, controller.Leave)
 }
 
 func (controller *ClassroomController) getRequestUserInfo(c *fiber.Ctx) (userID string, isSuperAdmin bool, err error) {
@@ -368,5 +371,106 @@ func (controller *ClassroomController) ListMembers(c *fiber.Ctx) error {
 		Code:    200,
 		Message: "Success",
 		Data:    response,
+	})
+}
+
+// UpdateMemberRole func updates a classroom member's role.
+// @Description update classroom member role.
+// @Summary update classroom member role
+// @Tags Classroom
+// @Accept json
+// @Produce json
+// @Param id path string true "Classroom ID"
+// @Param userId path string true "User ID to update"
+// @Param request body model.UpdateMemberRoleRequest true "Request Body"
+// @Success 200 {object} model.GeneralResponse{data=string}
+// @Security JWT
+// @Router /api/v1/classrooms/{id}/members/{userId} [put]
+func (controller *ClassroomController) UpdateMemberRole(c *fiber.Ctx) error {
+	id := c.Params("id")
+	targetUserID := c.Params("userId")
+	userIDStr, isSuperAdmin, err := controller.getRequestUserInfo(c)
+	if err != nil {
+		return err
+	}
+
+	var request model.UpdateMemberRoleRequest
+	if err := c.BodyParser(&request); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(model.GeneralResponse{
+			Code:    400,
+			Message: "Bad Request",
+			Data:    err.Error(),
+		})
+	}
+
+	err = controller.ClassroomService.UpdateMemberRole(c.UserContext(), id, targetUserID, request, userIDStr, isSuperAdmin)
+	if err != nil {
+		return err
+	}
+
+	return c.Status(fiber.StatusOK).JSON(model.GeneralResponse{
+		Code:    200,
+		Message: "Success",
+		Data:    "Member role updated successfully",
+	})
+}
+
+// RemoveMember func kicks a member from classroom.
+// @Description kick classroom member.
+// @Summary kick classroom member
+// @Tags Classroom
+// @Accept json
+// @Produce json
+// @Param id path string true "Classroom ID"
+// @Param userId path string true "User ID to kick"
+// @Success 200 {object} model.GeneralResponse{data=string}
+// @Security JWT
+// @Router /api/v1/classrooms/{id}/members/{userId} [delete]
+func (controller *ClassroomController) RemoveMember(c *fiber.Ctx) error {
+	id := c.Params("id")
+	targetUserID := c.Params("userId")
+	userIDStr, isSuperAdmin, err := controller.getRequestUserInfo(c)
+	if err != nil {
+		return err
+	}
+
+	err = controller.ClassroomService.RemoveMember(c.UserContext(), id, targetUserID, userIDStr, isSuperAdmin)
+	if err != nil {
+		return err
+	}
+
+	return c.Status(fiber.StatusOK).JSON(model.GeneralResponse{
+		Code:    200,
+		Message: "Success",
+		Data:    "Member removed successfully",
+	})
+}
+
+// Leave func leaves classroom.
+// @Description leave classroom.
+// @Summary leave classroom
+// @Tags Classroom
+// @Accept json
+// @Produce json
+// @Param id path string true "Classroom ID"
+// @Success 200 {object} model.GeneralResponse{data=string}
+// @Security JWT
+// @Router /api/v1/classrooms/{id}/leave [post]
+func (controller *ClassroomController) Leave(c *fiber.Ctx) error {
+	id := c.Params("id")
+	userIDStr, _, err := controller.getRequestUserInfo(c)
+	if err != nil {
+		return err
+	}
+
+	err = controller.ClassroomService.LeaveClassroom(c.UserContext(), id, userIDStr)
+	if err != nil {
+		return err
+	}
+
+	return c.Status(fiber.StatusOK).JSON(model.GeneralResponse{
+		Code:    200,
+		Message: "Success",
+		Data:    "Successfully left the classroom",
 	})
 }
