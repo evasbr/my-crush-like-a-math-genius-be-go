@@ -1053,6 +1053,55 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/api/v1/users/me/profile-picture": {
+            "patch": {
+                "security": [
+                    {
+                        "JWT": []
+                    }
+                ],
+                "description": "updates current user profile picture.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "User"
+                ],
+                "summary": "update profile picture",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Profile picture file (JPEG, PNG, WebP, max 1MB)",
+                        "name": "profile_picture",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/model.GeneralResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.UserProfileResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -1400,9 +1449,6 @@ const docTemplate = `{
                     "maxLength": 50,
                     "minLength": 6
                 },
-                "profile_picture_url": {
-                    "type": "string"
-                },
                 "username": {
                     "type": "string",
                     "maxLength": 30,
@@ -1426,9 +1472,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "last_name": {
-                    "type": "string"
-                },
-                "profile_picture_url": {
                     "type": "string"
                 },
                 "username": {

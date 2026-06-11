@@ -9,6 +9,8 @@ import (
 	"evasbr/mclamg/model"
 	repository "evasbr/mclamg/repository/impl"
 	service "evasbr/mclamg/service/impl"
+	"evasbr/mclamg/common"
+	"evasbr/mclamg/exception"
 	"os"
 
 	"github.com/go-redis/redis/v9"
@@ -33,8 +35,12 @@ func BuildApp(config configuration.Config, database *gorm.DB, redis *redis.Clien
 	//rest client
 	httpBinRestClient := restclient.NewHttpBinRestClient()
 
+	//file storage
+	fileStorage, err := common.NewFileStorage(config.Get("CLOUDINARY_URL"))
+	exception.PanicLogging(err)
+
 	//service
-	userService := service.NewUserServiceImpl(&userRepository)
+	userService := service.NewUserServiceImpl(&userRepository, fileStorage)
 	authService := service.NewAuthServiceImpl(&userRepository, &authRepository, redis, config)
 	httpBinService := service.NewHttpBinServiceImpl(&httpBinRestClient)
 	topicService := service.NewTopicServiceImpl(&topicRepository)

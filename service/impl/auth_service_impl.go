@@ -74,13 +74,12 @@ func (s *authServiceImpl) Register(ctx context.Context, req model.RegisterReques
 	}
 
 	return model.RegisterResponse{
-		ID:                user.ID.String(),
-		Username:          username,
-		Email:             user.Email,
-		FirstName:         user.FirstName,
-		LastName:          user.LastName,
-		Gender:            user.Gender,
-		ProfilePictureURL: user.ProfilePictureURL,
+		ID:        user.ID.String(),
+		Username:  username,
+		Email:     user.Email,
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+		Gender:    user.Gender,
 	}, nil
 }
 

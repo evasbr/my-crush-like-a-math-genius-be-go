@@ -11,6 +11,7 @@ import (
 	"evasbr/mclamg/repository"
 	"evasbr/mclamg/repository/impl"
 	impl2 "evasbr/mclamg/service/impl"
+	"evasbr/mclamg/common"
 	"io"
 	"net/http/httptest"
 
@@ -71,7 +72,7 @@ var userRepository = impl.NewUserRepositoryImpl(database)
 var authRepository = impl.NewAuthRepositoryImpl(database)
 
 // service
-var userService = impl2.NewUserServiceImpl(&userRepository)
+var userService = impl2.NewUserServiceImpl(&userRepository, common.NewDisabledStorage())
 var authService = impl2.NewAuthServiceImpl(&userRepository, &authRepository, redisClient, config)
 
 // controller
