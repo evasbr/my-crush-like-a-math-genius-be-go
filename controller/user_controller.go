@@ -33,6 +33,7 @@ func NewUserController(userService *service.UserService, config configuration.Co
 func (controller *UserController) Route(router fiber.Router) {
 	users := router.Group("/users")
 	users.Get("/me", middleware.RequireAuth([]string{}, controller.Config, controller.Redis), controller.GetMyProfile)
+	users.Patch("/me/profile-picture", middleware.RequireAuth([]string{}, controller.Config, controller.Redis), controller.UpdateProfilePicture)
 }
 
 // GetMyProfile func gets current user profile.
@@ -135,5 +136,72 @@ func (controller *UserController) GetMyProfile(c *fiber.Ctx) error {
 		Data:    response,
 	})
 }
+
+// UpdateProfilePicture func updates current user profile picture.
+// @Description updates current user profile picture.
+// @Summary update profile picture
+// @Tags User
+// @Accept multipart/form-data
+// @Produce json
+// @Param profile_picture formData file true "Profile picture file (JPEG, PNG, WebP, max 1MB)"
+// @Success 200 {object} model.GeneralResponse{data=model.UserProfileResponse}
+// @Security JWT
+// @Router /api/v1/users/me/profile-picture [patch]
+func (controller *UserController) UpdateProfilePicture(c *fiber.Ctx) error {
+	userToken, ok := c.Locals("user").(*jwt.Token)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(model.GeneralResponse{
+			Code:    401,
+			Message: "Unauthorized",
+			Data:    "Missing or invalid JWT token in context",
+		})
+	}
+
+	claims, ok := userToken.Claims.(jwt.MapClaims)
+	if !ok {
+		return c.Status(fiber.StatusForbidden).JSON(model.GeneralResponse{
+			Code:    403,
+			Message: "Forbidden",
+			Data:    "Invalid token claims",
+		})
+	}
+
+	userIDStr, ok := claims["user_id"].(string)
+	if !ok {
+		return c.Status(fiber.StatusForbidden).JSON(model.GeneralResponse{
+			Code:    403,
+			Message: "Forbidden",
+			Data:    "Missing user_id claim in JWT",
+		})
+	}
+
+	fileHeader, err := c.FormFile("profile_picture")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(model.GeneralResponse{
+			Code:    400,
+			Message: "Bad Request",
+			Data:    "profile_picture field is required",
+		})
+	}
+
+	updatedUser, err := controller.UserService.UpdateProfilePicture(c.UserContext(), userIDStr, fileHeader)
+	if err != nil {
+		return err
+	}
+
+	var profilePictureURL string
+	if updatedUser.ProfilePictureURL != nil {
+		profilePictureURL = *updatedUser.ProfilePictureURL
+	}
+
+	return c.Status(fiber.StatusOK).JSON(model.GeneralResponse{
+		Code:    200,
+		Message: "Success",
+		Data: fiber.Map{
+			"profile_picture_url": profilePictureURL,
+		},
+	})
+}
+
 
 

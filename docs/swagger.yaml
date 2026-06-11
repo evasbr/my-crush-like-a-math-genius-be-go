@@ -229,8 +229,6 @@ definitions:
         maxLength: 50
         minLength: 6
         type: string
-      profile_picture_url:
-        type: string
       username:
         maxLength: 30
         minLength: 3
@@ -252,8 +250,6 @@ definitions:
       id:
         type: string
       last_name:
-        type: string
-      profile_picture_url:
         type: string
       username:
         type: string
@@ -1027,6 +1023,34 @@ paths:
       security:
       - JWT: []
       summary: get profile
+      tags:
+      - User
+  /api/v1/users/me/profile-picture:
+    patch:
+      consumes:
+      - multipart/form-data
+      description: updates current user profile picture.
+      parameters:
+      - description: Profile picture file (JPEG, PNG, WebP, max 1MB)
+        in: formData
+        name: profile_picture
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.GeneralResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.UserProfileResponse'
+              type: object
+      security:
+      - JWT: []
+      summary: update profile picture
       tags:
       - User
 schemes:
