@@ -64,6 +64,42 @@ definitions:
       userId:
         type: string
     type: object
+  model.ClassroomMemberResponse:
+    properties:
+      email:
+        type: string
+      first_name:
+        type: string
+      last_name:
+        type: string
+      role:
+        type: string
+      user_id:
+        type: string
+    type: object
+  model.ClassroomResponse:
+    properties:
+      codes:
+        type: string
+      cover_img:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      is_external_invite_enable:
+        type: boolean
+      name:
+        type: string
+      status:
+        type: string
+      updated_at:
+        type: string
+      wallpaper_img:
+        type: string
+    type: object
   model.CreateAnswerOptionDto:
     properties:
       content:
@@ -111,22 +147,6 @@ definitions:
     - questions
     - topicId
     type: object
-  model.CreateTopicRequest:
-    properties:
-      level_settings:
-        items:
-          $ref: '#/definitions/model.LevelSettingDto'
-        type: array
-      max_attempts:
-        minimum: 1
-        type: integer
-      name:
-        type: string
-    required:
-    - level_settings
-    - max_attempts
-    - name
-    type: object
   model.GeneralResponse:
     properties:
       code:
@@ -135,6 +155,13 @@ definitions:
       errors: {}
       message:
         type: string
+    type: object
+  model.JoinClassroomRequest:
+    properties:
+      code:
+        type: string
+    required:
+    - code
     type: object
   model.LevelSettingDto:
     properties:
@@ -324,7 +351,19 @@ definitions:
     type: object
   model.TopicResponse:
     properties:
+      classroom_id:
+        type: string
       created_at:
+        type: string
+      description:
+        type: string
+      female_dating_dialog:
+        type: string
+      female_dating_img:
+        type: string
+      female_normal_dialog:
+        type: string
+      female_normal_img:
         type: string
       id:
         type: string
@@ -332,9 +371,19 @@ definitions:
         items:
           $ref: '#/definitions/model.LevelSettingDto'
         type: array
+      male_dating_dialog:
+        type: string
+      male_dating_img:
+        type: string
+      male_normal_dialog:
+        type: string
+      male_normal_img:
+        type: string
       max_attempts:
         type: integer
       name:
+        type: string
+      status:
         type: string
       updated_at:
         type: string
@@ -355,22 +404,6 @@ definitions:
     - content
     - options
     - timeLimit
-    type: object
-  model.UpdateTopicRequest:
-    properties:
-      level_settings:
-        items:
-          $ref: '#/definitions/model.LevelSettingDto'
-        type: array
-      max_attempts:
-        minimum: 1
-        type: integer
-      name:
-        type: string
-    required:
-    - level_settings
-    - max_attempts
-    - name
     type: object
   model.UserDto:
     properties:
@@ -678,6 +711,262 @@ paths:
       summary: register user
       tags:
       - Authentication
+  /api/v1/classrooms:
+    get:
+      consumes:
+      - application/json
+      description: list all classrooms.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.GeneralResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.ClassroomResponse'
+                  type: array
+              type: object
+      security:
+      - JWT: []
+      summary: list classrooms
+      tags:
+      - Classroom
+    post:
+      consumes:
+      - multipart/form-data
+      description: create a new classroom.
+      parameters:
+      - description: Classroom Name
+        in: formData
+        name: name
+        required: true
+        type: string
+      - description: Description
+        in: formData
+        name: description
+        type: string
+      - description: Enable External Invite
+        in: formData
+        name: is_external_invite_enable
+        type: boolean
+      - description: Cover image file (JPEG, PNG, WebP, max 1MB)
+        in: formData
+        name: cover_img
+        type: file
+      - description: Wallpaper image file (JPEG, PNG, WebP, max 1MB)
+        in: formData
+        name: wallpaper_img
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.GeneralResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.ClassroomResponse'
+              type: object
+      security:
+      - JWT: []
+      summary: create classroom
+      tags:
+      - Classroom
+  /api/v1/classrooms/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: delete a classroom by UUID.
+      parameters:
+      - description: Classroom ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.GeneralResponse'
+            - properties:
+                data:
+                  type: string
+              type: object
+      security:
+      - JWT: []
+      summary: delete classroom
+      tags:
+      - Classroom
+    get:
+      consumes:
+      - application/json
+      description: get a specific classroom by UUID (user must be a member or admin).
+      parameters:
+      - description: Classroom ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.GeneralResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.ClassroomResponse'
+              type: object
+      security:
+      - JWT: []
+      summary: get classroom
+      tags:
+      - Classroom
+    put:
+      consumes:
+      - multipart/form-data
+      description: update an existing classroom.
+      parameters:
+      - description: Classroom ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Classroom Name
+        in: formData
+        name: name
+        type: string
+      - description: Description
+        in: formData
+        name: description
+        type: string
+      - description: Enable External Invite
+        in: formData
+        name: is_external_invite_enable
+        type: boolean
+      - description: Status
+        in: formData
+        name: status
+        type: string
+      - description: Cover image file (JPEG, PNG, WebP, max 1MB)
+        in: formData
+        name: cover_img
+        type: file
+      - description: Wallpaper image file (JPEG, PNG, WebP, max 1MB)
+        in: formData
+        name: wallpaper_img
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.GeneralResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.ClassroomResponse'
+              type: object
+      security:
+      - JWT: []
+      summary: update classroom
+      tags:
+      - Classroom
+  /api/v1/classrooms/{id}/members:
+    get:
+      consumes:
+      - application/json
+      description: list classroom members.
+      parameters:
+      - description: Classroom ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.GeneralResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.ClassroomMemberResponse'
+                  type: array
+              type: object
+      security:
+      - JWT: []
+      summary: list classroom members
+      tags:
+      - Classroom
+  /api/v1/classrooms/join:
+    post:
+      consumes:
+      - application/json
+      description: join classroom by code.
+      parameters:
+      - description: Join Classroom Request Body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.JoinClassroomRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.GeneralResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.ClassroomResponse'
+              type: object
+      security:
+      - JWT: []
+      summary: join classroom
+      tags:
+      - Classroom
+  /api/v1/classrooms/me:
+    get:
+      consumes:
+      - application/json
+      description: list user's classrooms.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.GeneralResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.ClassroomResponse'
+                  type: array
+              type: object
+      security:
+      - JWT: []
+      summary: list my classrooms
+      tags:
+      - Classroom
   /api/v1/questions:
     get:
       consumes:
@@ -844,6 +1133,10 @@ paths:
         in: query
         name: limit
         type: integer
+      - description: Filter by Classroom ID
+        in: query
+        name: classroomId
+        type: string
       produces:
       - application/json
       responses:
@@ -863,15 +1156,78 @@ paths:
       - Topic
     post:
       consumes:
-      - application/json
+      - multipart/form-data
       description: create a new topic.
       parameters:
-      - description: Create Topic Request Body
-        in: body
-        name: request
+      - description: Classroom ID
+        in: formData
+        name: classroom_id
         required: true
-        schema:
-          $ref: '#/definitions/model.CreateTopicRequest'
+        type: string
+      - description: Topic Name
+        in: formData
+        name: name
+        required: true
+        type: string
+      - description: Description
+        in: formData
+        name: description
+        type: string
+      - description: Female Normal Dialog
+        in: formData
+        name: female_normal_dialog
+        required: true
+        type: string
+      - description: Male Normal Dialog
+        in: formData
+        name: male_normal_dialog
+        required: true
+        type: string
+      - description: Female Dating Dialog
+        in: formData
+        name: female_dating_dialog
+        required: true
+        type: string
+      - description: Male Dating Dialog
+        in: formData
+        name: male_dating_dialog
+        required: true
+        type: string
+      - description: Status
+        in: formData
+        name: status
+        required: true
+        type: string
+      - description: Level Settings JSON Array
+        in: formData
+        name: level_settings
+        required: true
+        type: string
+      - description: Max Attempts
+        in: formData
+        name: max_attempts
+        required: true
+        type: integer
+      - description: Female Normal image file (JPEG, PNG, WebP, max 1MB)
+        in: formData
+        name: female_normal_img
+        required: true
+        type: file
+      - description: Male Normal image file (JPEG, PNG, WebP, max 1MB)
+        in: formData
+        name: male_normal_img
+        required: true
+        type: file
+      - description: Female Dating image file (JPEG, PNG, WebP, max 1MB)
+        in: formData
+        name: female_dating_img
+        required: true
+        type: file
+      - description: Male Dating image file (JPEG, PNG, WebP, max 1MB)
+        in: formData
+        name: male_dating_img
+        required: true
+        type: file
       produces:
       - application/json
       responses:
@@ -944,7 +1300,7 @@ paths:
       - Topic
     put:
       consumes:
-      - application/json
+      - multipart/form-data
       description: update an existing topic.
       parameters:
       - description: Topic ID
@@ -952,12 +1308,62 @@ paths:
         name: id
         required: true
         type: string
-      - description: Update Topic Request Body
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/model.UpdateTopicRequest'
+      - description: Classroom ID
+        in: formData
+        name: classroom_id
+        type: string
+      - description: Topic Name
+        in: formData
+        name: name
+        type: string
+      - description: Description
+        in: formData
+        name: description
+        type: string
+      - description: Female Normal Dialog
+        in: formData
+        name: female_normal_dialog
+        type: string
+      - description: Male Normal Dialog
+        in: formData
+        name: male_normal_dialog
+        type: string
+      - description: Female Dating Dialog
+        in: formData
+        name: female_dating_dialog
+        type: string
+      - description: Male Dating Dialog
+        in: formData
+        name: male_dating_dialog
+        type: string
+      - description: Status
+        in: formData
+        name: status
+        type: string
+      - description: Level Settings JSON Array
+        in: formData
+        name: level_settings
+        type: string
+      - description: Max Attempts
+        in: formData
+        name: max_attempts
+        type: integer
+      - description: Female Normal image file (JPEG, PNG, WebP, max 1MB)
+        in: formData
+        name: female_normal_img
+        type: file
+      - description: Male Normal image file (JPEG, PNG, WebP, max 1MB)
+        in: formData
+        name: male_normal_img
+        type: file
+      - description: Female Dating image file (JPEG, PNG, WebP, max 1MB)
+        in: formData
+        name: female_dating_img
+        type: file
+      - description: Male Dating image file (JPEG, PNG, WebP, max 1MB)
+        in: formData
+        name: male_dating_img
+        type: file
       produces:
       - application/json
       responses:

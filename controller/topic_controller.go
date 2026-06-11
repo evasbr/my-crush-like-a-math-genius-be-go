@@ -1,11 +1,13 @@
 package controller
 
 import (
+	"encoding/json"
 	"evasbr/mclamg/common"
 	"evasbr/mclamg/configuration"
 	"evasbr/mclamg/middleware"
 	"evasbr/mclamg/model"
 	"evasbr/mclamg/service"
+	"fmt"
 
 	"github.com/go-redis/redis/v9"
 	"github.com/gofiber/fiber/v2"
@@ -50,6 +52,7 @@ func (controller *TopicController) Route(router fiber.Router) {
 // @Produce json
 // @Param page query int false "Page number"
 // @Param limit query int false "Limit number"
+// @Param classroomId query string false "Filter by Classroom ID"
 // @Success 200 {object} model.GeneralResponse{data=[]model.TopicResponse}
 // @Router /api/v1/topics [get]
 func (controller *TopicController) FindAll(c *fiber.Ctx) error {
@@ -101,9 +104,22 @@ func (controller *TopicController) FindByID(c *fiber.Ctx) error {
 // @Description create a new topic.
 // @Summary create topic
 // @Tags Topic
-// @Accept json
+// @Accept multipart/form-data
 // @Produce json
-// @Param request body model.CreateTopicRequest true "Create Topic Request Body"
+// @Param classroom_id formData string true "Classroom ID"
+// @Param name formData string true "Topic Name"
+// @Param description formData string false "Description"
+// @Param female_normal_dialog formData string true "Female Normal Dialog"
+// @Param male_normal_dialog formData string true "Male Normal Dialog"
+// @Param female_dating_dialog formData string true "Female Dating Dialog"
+// @Param male_dating_dialog formData string true "Male Dating Dialog"
+// @Param status formData string true "Status"
+// @Param level_settings formData string true "Level Settings JSON Array"
+// @Param max_attempts formData integer true "Max Attempts"
+// @Param female_normal_img formData file true "Female Normal image file (JPEG, PNG, WebP, max 1MB)"
+// @Param male_normal_img formData file true "Male Normal image file (JPEG, PNG, WebP, max 1MB)"
+// @Param female_dating_img formData file true "Female Dating image file (JPEG, PNG, WebP, max 1MB)"
+// @Param male_dating_img formData file true "Male Dating image file (JPEG, PNG, WebP, max 1MB)"
 // @Success 201 {object} model.GeneralResponse{data=model.TopicResponse}
 // @Security JWT
 // @Router /api/v1/topics [post]
@@ -117,7 +133,63 @@ func (controller *TopicController) Create(c *fiber.Ctx) error {
 		})
 	}
 
-	response, err := controller.TopicService.Create(c.UserContext(), request)
+	if len(request.LevelSettings) == 0 && c.FormValue("level_settings") != "" {
+		var settings []model.LevelSettingDto
+		if err := json.Unmarshal([]byte(c.FormValue("level_settings")), &settings); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(model.GeneralResponse{
+				Code:    400,
+				Message: "Bad Request",
+				Data:    fmt.Sprintf("invalid level_settings JSON format: %v", err),
+			})
+		}
+		request.LevelSettings = settings
+	}
+
+	femaleNormalHeader, err := c.FormFile("female_normal_img")
+	if err == nil && femaleNormalHeader != nil {
+		if err := common.ValidateImageFile(femaleNormalHeader); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(model.GeneralResponse{
+				Code:    400,
+				Message: "Bad Request",
+				Data:    fmt.Sprintf("invalid female_normal_img: %v", err),
+			})
+		}
+	}
+
+	maleNormalHeader, err := c.FormFile("male_normal_img")
+	if err == nil && maleNormalHeader != nil {
+		if err := common.ValidateImageFile(maleNormalHeader); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(model.GeneralResponse{
+				Code:    400,
+				Message: "Bad Request",
+				Data:    fmt.Sprintf("invalid male_normal_img: %v", err),
+			})
+		}
+	}
+
+	femaleDatingHeader, err := c.FormFile("female_dating_img")
+	if err == nil && femaleDatingHeader != nil {
+		if err := common.ValidateImageFile(femaleDatingHeader); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(model.GeneralResponse{
+				Code:    400,
+				Message: "Bad Request",
+				Data:    fmt.Sprintf("invalid female_dating_img: %v", err),
+			})
+		}
+	}
+
+	maleDatingHeader, err := c.FormFile("male_dating_img")
+	if err == nil && maleDatingHeader != nil {
+		if err := common.ValidateImageFile(maleDatingHeader); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(model.GeneralResponse{
+				Code:    400,
+				Message: "Bad Request",
+				Data:    fmt.Sprintf("invalid male_dating_img: %v", err),
+			})
+		}
+	}
+
+	response, err := controller.TopicService.Create(c.UserContext(), request, femaleNormalHeader, maleNormalHeader, femaleDatingHeader, maleDatingHeader)
 	if err != nil {
 		return err
 	}
@@ -133,10 +205,23 @@ func (controller *TopicController) Create(c *fiber.Ctx) error {
 // @Description update an existing topic.
 // @Summary update topic
 // @Tags Topic
-// @Accept json
+// @Accept multipart/form-data
 // @Produce json
 // @Param id path string true "Topic ID"
-// @Param request body model.UpdateTopicRequest true "Update Topic Request Body"
+// @Param classroom_id formData string false "Classroom ID"
+// @Param name formData string false "Topic Name"
+// @Param description formData string false "Description"
+// @Param female_normal_dialog formData string false "Female Normal Dialog"
+// @Param male_normal_dialog formData string false "Male Normal Dialog"
+// @Param female_dating_dialog formData string false "Female Dating Dialog"
+// @Param male_dating_dialog formData string false "Male Dating Dialog"
+// @Param status formData string false "Status"
+// @Param level_settings formData string false "Level Settings JSON Array"
+// @Param max_attempts formData integer false "Max Attempts"
+// @Param female_normal_img formData file false "Female Normal image file (JPEG, PNG, WebP, max 1MB)"
+// @Param male_normal_img formData file false "Male Normal image file (JPEG, PNG, WebP, max 1MB)"
+// @Param female_dating_img formData file false "Female Dating image file (JPEG, PNG, WebP, max 1MB)"
+// @Param male_dating_img formData file false "Male Dating image file (JPEG, PNG, WebP, max 1MB)"
 // @Success 200 {object} model.GeneralResponse{data=model.TopicResponse}
 // @Security JWT
 // @Router /api/v1/topics/{id} [put]
@@ -151,7 +236,63 @@ func (controller *TopicController) Update(c *fiber.Ctx) error {
 		})
 	}
 
-	response, err := controller.TopicService.Update(c.UserContext(), request, id)
+	if len(request.LevelSettings) == 0 && c.FormValue("level_settings") != "" {
+		var settings []model.LevelSettingDto
+		if err := json.Unmarshal([]byte(c.FormValue("level_settings")), &settings); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(model.GeneralResponse{
+				Code:    400,
+				Message: "Bad Request",
+				Data:    fmt.Sprintf("invalid level_settings JSON format: %v", err),
+			})
+		}
+		request.LevelSettings = settings
+	}
+
+	femaleNormalHeader, err := c.FormFile("female_normal_img")
+	if err == nil && femaleNormalHeader != nil {
+		if err := common.ValidateImageFile(femaleNormalHeader); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(model.GeneralResponse{
+				Code:    400,
+				Message: "Bad Request",
+				Data:    fmt.Sprintf("invalid female_normal_img: %v", err),
+			})
+		}
+	}
+
+	maleNormalHeader, err := c.FormFile("male_normal_img")
+	if err == nil && maleNormalHeader != nil {
+		if err := common.ValidateImageFile(maleNormalHeader); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(model.GeneralResponse{
+				Code:    400,
+				Message: "Bad Request",
+				Data:    fmt.Sprintf("invalid male_normal_img: %v", err),
+			})
+		}
+	}
+
+	femaleDatingHeader, err := c.FormFile("female_dating_img")
+	if err == nil && femaleDatingHeader != nil {
+		if err := common.ValidateImageFile(femaleDatingHeader); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(model.GeneralResponse{
+				Code:    400,
+				Message: "Bad Request",
+				Data:    fmt.Sprintf("invalid female_dating_img: %v", err),
+			})
+		}
+	}
+
+	maleDatingHeader, err := c.FormFile("male_dating_img")
+	if err == nil && maleDatingHeader != nil {
+		if err := common.ValidateImageFile(maleDatingHeader); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(model.GeneralResponse{
+				Code:    400,
+				Message: "Bad Request",
+				Data:    fmt.Sprintf("invalid male_dating_img: %v", err),
+			})
+		}
+	}
+
+	response, err := controller.TopicService.Update(c.UserContext(), request, femaleNormalHeader, maleNormalHeader, femaleDatingHeader, maleDatingHeader, id)
 	if err != nil {
 		return err
 	}

@@ -20,6 +20,8 @@ type StorageFolder string
 const (
 	FolderDefault         StorageFolder = "mclamg/upload"
 	FolderProfilePictures StorageFolder = "mclamg/profile_pictures"
+	FolderClassrooms      StorageFolder = "mclamg/classrooms"
+	FolderTopics          StorageFolder = "mclamg/topics"
 )
 
 // FileStorage defines a provider-agnostic interface for uploading and deleting files.

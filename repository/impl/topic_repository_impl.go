@@ -23,7 +23,12 @@ func (r *topicRepositoryImpl) FindAll(ctx context.Context, filter model.TopicFil
 	var topics []entity.Topic
 	offset := (filter.Page - 1) * filter.Limit
 
-	err := r.DB.WithContext(ctx).
+	query := r.DB.WithContext(ctx)
+	if filter.ClassroomID != "" {
+		query = query.Where("classroom_id = ?", filter.ClassroomID)
+	}
+
+	err := query.
 		Limit(filter.Limit).
 		Offset(offset).
 		Find(&topics).Error
@@ -55,15 +60,7 @@ func (r *topicRepositoryImpl) Create(ctx context.Context, topic entity.Topic) (e
 }
 
 func (r *topicRepositoryImpl) Update(ctx context.Context, topic entity.Topic) (entity.Topic, error) {
-	err := r.DB.WithContext(ctx).
-		Model(&topic).
-		Where("id = ?", topic.ID).
-		Updates(entity.Topic{
-			Name:          topic.Name,
-			LevelSettings: topic.LevelSettings,
-			MaxAttempts:   topic.MaxAttempts,
-		}).Error
-
+	err := r.DB.WithContext(ctx).Save(&topic).Error
 	if err != nil {
 		return entity.Topic{}, err
 	}
