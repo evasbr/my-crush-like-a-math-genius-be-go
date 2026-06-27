@@ -11,5 +11,6 @@ type AttemptService interface {
 	GetNextQuestion(ctx context.Context, sessionId string, userId string) (model.ActiveQuestionResponse, error)
 	SubmitAnswer(ctx context.Context, request model.SubmitAnswerRequest, userId string) (model.SubmitAnswerResponse, error)
 	FindByID(ctx context.Context, id string, userId string) (model.AttemptSessionResponse, error)
+	GetAttemptDetails(ctx context.Context, attemptId string, userId string) ([]model.AttemptDetailDto, error)
 	FindAll(ctx context.Context, filter model.AttemptFilter, userId string) ([]model.AttemptSessionResponse, int64, error)
 }

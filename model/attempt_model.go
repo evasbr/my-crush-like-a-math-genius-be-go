@@ -24,7 +24,7 @@ type StartAttemptRequest struct {
 type SubmitAnswerRequest struct {
 	AttemptSessionID string `json:"attemptSessionId" validate:"required,uuid"`
 	QuestionID       string `json:"questionId" validate:"required,uuid"`
-	AnswerID         string `json:"answerId" validate:"required,uuid"`
+	AnswerID         string `json:"answerId" validate:"omitempty,uuid"`
 }
 
 type SubmitAnswerResponse struct {

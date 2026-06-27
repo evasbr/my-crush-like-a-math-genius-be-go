@@ -237,6 +237,58 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/attempts/{id}/details": {
+            "get": {
+                "security": [
+                    {
+                        "JWT": []
+                    }
+                ],
+                "description": "gets list of attempt details (questions and answers) by attempt session ID.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Attempt"
+                ],
+                "summary": "get attempt details",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Attempt Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/model.GeneralResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/model.AttemptDetailDto"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/attempts/{id}/next-question": {
             "get": {
                 "security": [

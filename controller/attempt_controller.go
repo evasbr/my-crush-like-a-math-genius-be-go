@@ -42,7 +42,9 @@ func (controller *AttemptController) Route(router fiber.Router) {
 	// Get active/next question
 	attempts.Get("/:id/next-question", requireAuth, controller.GetNextQuestion)
 	// FindOne attempt details
-	attempts.Get("/:id", requireAuth, controller.FindByID)
+	// attempts.Get("/:id", requireAuth, controller.FindByID)
+	// Get attempt details by attempt ID
+	attempts.Get("/:id/details", requireAuth, controller.GetAttemptDetails)
 
 	// Topic attempts level info
 	router.Get("/topics/:topicId/attempts/info", requireAuth, controller.GetTopicAttemptInfo)
@@ -224,6 +226,36 @@ func (controller *AttemptController) FindByID(c *fiber.Ctx) error {
 		Data:    response,
 	})
 }
+
+// GetAttemptDetails func gets attempt details by attempt ID.
+// @Description gets list of attempt details (questions and answers) by attempt session ID.
+// @Summary get attempt details
+// @Tags Attempt
+// @Accept json
+// @Produce json
+// @Param id path string true "Attempt Session ID"
+// @Success 200 {object} model.GeneralResponse{data=[]model.AttemptDetailDto}
+// @Security JWT
+// @Router /api/v1/attempts/{id}/details [get]
+func (controller *AttemptController) GetAttemptDetails(c *fiber.Ctx) error {
+	id := c.Params("id")
+	userId, err := controller.getUserId(c)
+	if err != nil {
+		return err
+	}
+
+	response, err := controller.AttemptService.GetAttemptDetails(c.UserContext(), id, userId)
+	if err != nil {
+		return err
+	}
+
+	return c.Status(fiber.StatusOK).JSON(model.GeneralResponse{
+		Code:    200,
+		Message: "Success",
+		Data:    response,
+	})
+}
+
 
 // FindAll func retrieves attempt history list.
 // @Description gets list of attempt sessions for the user.

@@ -172,22 +172,46 @@ func (s *attemptServiceImpl) StartAttempt(ctx context.Context, request model.Sta
 	return s.toAttemptSessionResponse(fullSession, false, false), nil
 }
 
+func calculateSessionExpirationTime(session entity.AttemptSession) time.Time {
+	if len(session.AttemptDetails) == 0 {
+		expiresAtStr, ok := session.MetaData["expires_at"].(string)
+		if ok {
+			t, err := time.Parse(time.RFC3339, expiresAtStr)
+			if err == nil {
+				return t
+			}
+		}
+		return session.StartedAt
+	}
+
+	deadlines := make([]time.Time, len(session.AttemptDetails))
+	for i, d := range session.AttemptDetails {
+		var startTime time.Time
+		if i == 0 {
+			startTime = session.StartedAt
+		} else {
+			prevDetail := session.AttemptDetails[i-1]
+			if prevDetail.AnsweredAt != nil {
+				startTime = *prevDetail.AnsweredAt
+			} else {
+				startTime = deadlines[i-1]
+			}
+		}
+		deadlines[i] = startTime.Add(time.Duration(d.Question.TimeLimit) * time.Second)
+	}
+
+	return deadlines[len(deadlines)-1]
+}
+
 func (s *attemptServiceImpl) checkExpiration(ctx context.Context, session entity.AttemptSession) (entity.AttemptSession, error) {
 	if session.Status != "STARTED" {
 		return session, nil
 	}
 
-	expiresAtStr, ok := session.MetaData["expires_at"].(string)
-	if !ok {
-		return session, nil
-	}
+	expiresAt := calculateSessionExpirationTime(session)
 
-	expiresAt, err := time.Parse(time.RFC3339, expiresAtStr)
-	if err != nil {
-		return session, nil
-	}
-
-	if time.Now().After(expiresAt) {
+	// Allow 2-second grace period/tolerance for network latency
+	if time.Now().After(expiresAt.Add(2 * time.Second)) {
 		updatedSession, err := s.AttemptRepository.ExpireSession(ctx, session.ID)
 		if err != nil {
 			return session, err
@@ -197,6 +221,7 @@ func (s *attemptServiceImpl) checkExpiration(ctx context.Context, session entity
 
 	return session, nil
 }
+
 
 func (s *attemptServiceImpl) GetNextQuestion(ctx context.Context, sessionId string, userId string) (model.ActiveQuestionResponse, error) {
 	parsedSessionID, err := uuid.Parse(sessionId)
@@ -274,9 +299,14 @@ func (s *attemptServiceImpl) SubmitAnswer(ctx context.Context, request model.Sub
 	if err != nil {
 		return model.SubmitAnswerResponse{}, exception.ValidationError{Message: "invalid question ID format"}
 	}
-	parsedAnswerID, err := uuid.Parse(request.AnswerID)
-	if err != nil {
-		return model.SubmitAnswerResponse{}, exception.ValidationError{Message: "invalid answer ID format"}
+	var parsedAnswerID uuid.UUID
+	if request.AnswerID != "" {
+		parsedAnswerID, err = uuid.Parse(request.AnswerID)
+		if err != nil {
+			return model.SubmitAnswerResponse{}, exception.ValidationError{Message: "invalid answer ID format"}
+		}
+	} else {
+		parsedAnswerID = uuid.Nil
 	}
 	parsedUserID, err := uuid.Parse(userId)
 	if err != nil {
@@ -334,6 +364,32 @@ func (s *attemptServiceImpl) FindByID(ctx context.Context, id string, userId str
 
 	showIsCorrect := session.Status == "FINISHED"
 	return s.toAttemptSessionResponse(session, showIsCorrect, session.Status == "FINISHED"), nil
+}
+
+func (s *attemptServiceImpl) GetAttemptDetails(ctx context.Context, attemptId string, userId string) ([]model.AttemptDetailDto, error) {
+	parsedSessionID, err := uuid.Parse(attemptId)
+	if err != nil {
+		return nil, exception.ValidationError{Message: "invalid attempt ID format"}
+	}
+	parsedUserID, err := uuid.Parse(userId)
+	if err != nil {
+		return nil, exception.ValidationError{Message: "invalid user ID format"}
+	}
+
+	session, err := s.AttemptRepository.FindByID(ctx, parsedSessionID, parsedUserID)
+	if err != nil {
+		return nil, exception.NotFoundError{Message: "attempt session not found"}
+	}
+
+	// Check deadline
+	session, err = s.checkExpiration(ctx, session)
+	if err != nil {
+		return nil, err
+	}
+
+	showIsCorrect := session.Status == "FINISHED"
+	response := s.toAttemptSessionResponse(session, showIsCorrect, true)
+	return response.Details, nil
 }
 
 func (s *attemptServiceImpl) FindAll(ctx context.Context, filter model.AttemptFilter, userId string) ([]model.AttemptSessionResponse, int64, error) {

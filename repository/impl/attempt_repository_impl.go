@@ -163,12 +163,15 @@ func (r *attemptRepositoryImpl) GetRandomUnattemptedQuestions(ctx context.Contex
 }
 
 func (r *attemptRepositoryImpl) GetNextUnansweredQuestion(ctx context.Context, sessionId uuid.UUID, userId uuid.UUID) (*entity.Question, error) {
-	var detail entity.AttemptDetail
+	var session entity.AttemptSession
 	err := r.DB.WithContext(ctx).
-		Joins("JOIN attempt_sessions s ON attempt_details.attempt_session_id = s.id").
-		Where("attempt_details.attempt_session_id = ? AND s.user_id = ? AND attempt_details.answer_id IS NULL", sessionId, userId).
-		Order("attempt_details.id ASC").
-		First(&detail).Error
+		Preload("AttemptDetails", func(db *gorm.DB) *gorm.DB {
+			return db.Order("id ASC")
+		}).
+		Preload("AttemptDetails.Question").
+		Preload("AttemptDetails.Question.Answers").
+		Where("id = ? AND user_id = ?", sessionId, userId).
+		First(&session).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -176,16 +179,32 @@ func (r *attemptRepositoryImpl) GetNextUnansweredQuestion(ctx context.Context, s
 		return nil, err
 	}
 
-	var question entity.Question
-	err = r.DB.WithContext(ctx).
-		Preload("Answers").
-		Where("id = ?", detail.QuestionID).
-		First(&question).Error
-	if err != nil {
-		return nil, err
+	nowTime := time.Now()
+	var activeQuestion *entity.Question
+
+	deadlines := make([]time.Time, len(session.AttemptDetails))
+	for i, d := range session.AttemptDetails {
+		var startTime time.Time
+		if i == 0 {
+			startTime = session.StartedAt
+		} else {
+			prevDetail := session.AttemptDetails[i-1]
+			if prevDetail.AnsweredAt != nil {
+				startTime = *prevDetail.AnsweredAt
+			} else {
+				startTime = deadlines[i-1]
+			}
+		}
+		deadlines[i] = startTime.Add(time.Duration(d.Question.TimeLimit) * time.Second)
+
+		// Serve the next question based on strict deadline and whether it hasn't been answered/skipped yet
+		if d.AnsweredAt == nil && nowTime.Before(deadlines[i]) {
+			activeQuestion = &d.Question
+			break
+		}
 	}
 
-	return &question, nil
+	return activeQuestion, nil
 }
 
 func (r *attemptRepositoryImpl) SubmitAnswer(ctx context.Context, sessionId uuid.UUID, questionId uuid.UUID, answerId uuid.UUID, userId uuid.UUID) (bool, uuid.UUID, bool, *int, error) {
@@ -204,19 +223,56 @@ func (r *attemptRepositoryImpl) SubmitAnswer(ctx context.Context, sessionId uuid
 			return errors.New("quiz session is not in STARTED status")
 		}
 
-		// 2. Verify and load details
-		var detail entity.AttemptDetail
-		if err := tx.Where("attempt_session_id = ? AND question_id = ?", sessionId, questionId).First(&detail).Error; err != nil {
+		// 2. Verify and load all details to calculate cumulative limits and order
+		var allDetails []entity.AttemptDetail
+		if err := tx.Preload("Question").Where("attempt_session_id = ?", sessionId).Order("id ASC").Find(&allDetails).Error; err != nil {
 			return err
 		}
-		if detail.AnswerID != nil {
-			return errors.New("question has already been answered")
+
+		nowTime := time.Now()
+		var targetDetail *entity.AttemptDetail
+		var targetIndex int = -1
+
+		// Calculate deadlines dynamically for all details
+		deadlines := make([]time.Time, len(allDetails))
+		for i, d := range allDetails {
+			var startTime time.Time
+			if i == 0 {
+				startTime = session.StartedAt
+			} else {
+				prevDetail := allDetails[i-1]
+				if prevDetail.AnsweredAt != nil {
+					startTime = *prevDetail.AnsweredAt
+				} else {
+					startTime = deadlines[i-1]
+				}
+			}
+			deadlines[i] = startTime.Add(time.Duration(d.Question.TimeLimit) * time.Second)
+
+			if d.QuestionID == questionId {
+				targetDetail = &allDetails[i]
+				targetIndex = i
+			}
 		}
 
-		// 3. Verify answer option and grade it
-		var answer entity.Answer
-		if err := tx.Where("id = ? AND question_id = ?", answerId, questionId).First(&answer).Error; err != nil {
-			return errors.New("invalid answer option for this question")
+		if targetDetail == nil {
+			return errors.New("question not found in this attempt session")
+		}
+
+		if targetDetail.AnsweredAt != nil {
+			return errors.New("question has already been answered or skipped")
+		}
+
+		// Check deadline for the target question (allowing 2-second grace period/tolerance for submit delay)
+		if nowTime.After(deadlines[targetIndex].Add(2 * time.Second)) {
+			return errors.New("time limit exceeded for this question")
+		}
+
+		// Verify prior questions: they must either be answered/skipped or strictly expired
+		for i := 0; i < targetIndex; i++ {
+			if allDetails[i].AnsweredAt == nil && nowTime.Before(deadlines[i]) {
+				return errors.New("cannot answer this question yet; please answer prior active questions first")
+			}
 		}
 
 		// Find correct answer id
@@ -225,39 +281,65 @@ func (r *attemptRepositoryImpl) SubmitAnswer(ctx context.Context, sessionId uuid
 			return errors.New("correct answer option not found for this question")
 		}
 		correctAnswerId = correctAnswer.ID
-		isCorrect = answer.IsCorrect
 
-		// 4. Update detail
-		nowTime := time.Now()
-		detail.AnswerID = &answerId
-		detail.IsCorrect = &isCorrect
-		detail.AnsweredAt = &nowTime
-		if err := tx.Save(&detail).Error; err != nil {
+		var isCorrectToScore *bool
+		if answerId != uuid.Nil {
+			// 3. Verify answer option and grade it
+			var answer entity.Answer
+			if err := tx.Where("id = ? AND question_id = ?", answerId, questionId).First(&answer).Error; err != nil {
+				return errors.New("invalid answer option for this question")
+			}
+			isCorrect = answer.IsCorrect
+			isCorrectToScore = &isCorrect
+			targetDetail.AnswerID = &answerId
+			targetDetail.IsCorrect = &isCorrect
+		} else {
+			// Skipped question
+			isCorrect = false
+			isCorrectToScore = nil
+		}
+
+		// 4. Update target detail
+		targetDetail.AnsweredAt = &nowTime
+		if err := tx.Save(targetDetail).Error; err != nil {
 			return err
 		}
 
-		// 5. Check if all questions are answered
-		var totalCount int64
-		var answeredCount int64
-		if err := tx.Model(&entity.AttemptDetail{}).Where("attempt_session_id = ?", sessionId).Count(&totalCount).Error; err != nil {
-			return err
-		}
-		if err := tx.Model(&entity.AttemptDetail{}).Where("attempt_session_id = ? AND answer_id IS NOT NULL", sessionId).Count(&answeredCount).Error; err != nil {
-			return err
+		// 5. Check if there are any remaining active questions left
+		hasActiveQuestions := false
+		tempDetails := make([]entity.AttemptDetail, len(allDetails))
+		copy(tempDetails, allDetails)
+		tempDetails[targetIndex].AnswerID = targetDetail.AnswerID
+		tempDetails[targetIndex].AnsweredAt = &nowTime
+
+		tempDeadlines := make([]time.Time, len(tempDetails))
+		for i, d := range tempDetails {
+			var startTime time.Time
+			if i == 0 {
+				startTime = session.StartedAt
+			} else {
+				prevDetail := tempDetails[i-1]
+				if prevDetail.AnsweredAt != nil {
+					startTime = *prevDetail.AnsweredAt
+				} else {
+					startTime = tempDeadlines[i-1]
+				}
+			}
+			tempDeadlines[i] = startTime.Add(time.Duration(d.Question.TimeLimit) * time.Second)
+
+			// Serve the next question based on strict deadline and whether it hasn't been answered/skipped
+			if d.AnsweredAt == nil && nowTime.Before(tempDeadlines[i]) {
+				hasActiveQuestions = true
+				break
+			}
 		}
 
-		if totalCount == answeredCount {
+		if !hasActiveQuestions {
 			isFinished = true
 			session.Status = "FINISHED"
 			session.FinishedAt = &nowTime
 
 			// Calculate final score
-			var allDetails []entity.AttemptDetail
-			if err := tx.Where("attempt_session_id = ?", sessionId).Find(&allDetails).Error; err != nil {
-				return err
-			}
-
-			// Find correct scores from topic settings
 			trueScore := 0
 			falseScore := 0
 			for _, setting := range session.Topic.LevelSettings {
@@ -270,8 +352,13 @@ func (r *attemptRepositoryImpl) SubmitAnswer(ctx context.Context, sessionId uuid
 
 			scoreVal := 0
 			for _, d := range allDetails {
-				if d.IsCorrect != nil {
-					if *d.IsCorrect {
+				isCorrVal := d.IsCorrect
+				if d.QuestionID == questionId {
+					isCorrVal = isCorrectToScore
+				}
+
+				if isCorrVal != nil {
+					if *isCorrVal {
 						scoreVal += trueScore
 					} else {
 						scoreVal += falseScore

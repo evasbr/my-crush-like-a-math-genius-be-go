@@ -553,6 +553,37 @@ paths:
       summary: get attempt detail
       tags:
       - Attempt
+  /api/v1/attempts/{id}/details:
+    get:
+      consumes:
+      - application/json
+      description: gets list of attempt details (questions and answers) by attempt
+        session ID.
+      parameters:
+      - description: Attempt Session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/model.GeneralResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.AttemptDetailDto'
+                  type: array
+              type: object
+      security:
+      - JWT: []
+      summary: get attempt details
+      tags:
+      - Attempt
   /api/v1/attempts/{id}/next-question:
     get:
       consumes:
