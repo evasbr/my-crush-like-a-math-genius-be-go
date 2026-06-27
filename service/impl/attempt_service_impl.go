@@ -172,22 +172,46 @@ func (s *attemptServiceImpl) StartAttempt(ctx context.Context, request model.Sta
 	return s.toAttemptSessionResponse(fullSession, false, false), nil
 }
 
+func calculateSessionExpirationTime(session entity.AttemptSession) time.Time {
+	if len(session.AttemptDetails) == 0 {
+		expiresAtStr, ok := session.MetaData["expires_at"].(string)
+		if ok {
+			t, err := time.Parse(time.RFC3339, expiresAtStr)
+			if err == nil {
+				return t
+			}
+		}
+		return session.StartedAt
+	}
+
+	deadlines := make([]time.Time, len(session.AttemptDetails))
+	for i, d := range session.AttemptDetails {
+		var startTime time.Time
+		if i == 0 {
+			startTime = session.StartedAt
+		} else {
+			prevDetail := session.AttemptDetails[i-1]
+			if prevDetail.AnsweredAt != nil {
+				startTime = *prevDetail.AnsweredAt
+			} else {
+				startTime = deadlines[i-1]
+			}
+		}
+		deadlines[i] = startTime.Add(time.Duration(d.Question.TimeLimit) * time.Second)
+	}
+
+	return deadlines[len(deadlines)-1]
+}
+
 func (s *attemptServiceImpl) checkExpiration(ctx context.Context, session entity.AttemptSession) (entity.AttemptSession, error) {
 	if session.Status != "STARTED" {
 		return session, nil
 	}
 
-	expiresAtStr, ok := session.MetaData["expires_at"].(string)
-	if !ok {
-		return session, nil
-	}
+	expiresAt := calculateSessionExpirationTime(session)
 
-	expiresAt, err := time.Parse(time.RFC3339, expiresAtStr)
-	if err != nil {
-		return session, nil
-	}
-
-	if time.Now().After(expiresAt) {
+	// Allow 2-second grace period/tolerance for network latency
+	if time.Now().After(expiresAt.Add(2 * time.Second)) {
 		updatedSession, err := s.AttemptRepository.ExpireSession(ctx, session.ID)
 		if err != nil {
 			return session, err
@@ -197,6 +221,7 @@ func (s *attemptServiceImpl) checkExpiration(ctx context.Context, session entity
 
 	return session, nil
 }
+
 
 func (s *attemptServiceImpl) GetNextQuestion(ctx context.Context, sessionId string, userId string) (model.ActiveQuestionResponse, error) {
 	parsedSessionID, err := uuid.Parse(sessionId)
