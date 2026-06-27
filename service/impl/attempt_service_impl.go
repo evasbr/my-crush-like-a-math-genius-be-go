@@ -336,6 +336,32 @@ func (s *attemptServiceImpl) FindByID(ctx context.Context, id string, userId str
 	return s.toAttemptSessionResponse(session, showIsCorrect, session.Status == "FINISHED"), nil
 }
 
+func (s *attemptServiceImpl) GetAttemptDetails(ctx context.Context, attemptId string, userId string) ([]model.AttemptDetailDto, error) {
+	parsedSessionID, err := uuid.Parse(attemptId)
+	if err != nil {
+		return nil, exception.ValidationError{Message: "invalid attempt ID format"}
+	}
+	parsedUserID, err := uuid.Parse(userId)
+	if err != nil {
+		return nil, exception.ValidationError{Message: "invalid user ID format"}
+	}
+
+	session, err := s.AttemptRepository.FindByID(ctx, parsedSessionID, parsedUserID)
+	if err != nil {
+		return nil, exception.NotFoundError{Message: "attempt session not found"}
+	}
+
+	// Check deadline
+	session, err = s.checkExpiration(ctx, session)
+	if err != nil {
+		return nil, err
+	}
+
+	showIsCorrect := session.Status == "FINISHED"
+	response := s.toAttemptSessionResponse(session, showIsCorrect, true)
+	return response.Details, nil
+}
+
 func (s *attemptServiceImpl) FindAll(ctx context.Context, filter model.AttemptFilter, userId string) ([]model.AttemptSessionResponse, int64, error) {
 	parsedUserID, err := uuid.Parse(userId)
 	if err != nil {
