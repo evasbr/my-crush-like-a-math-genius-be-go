@@ -197,8 +197,8 @@ func (r *attemptRepositoryImpl) GetNextUnansweredQuestion(ctx context.Context, s
 		}
 		deadlines[i] = startTime.Add(time.Duration(d.Question.TimeLimit) * time.Second)
 
-		// Allow 2-second grace period/tolerance for network latency
-		if d.AnswerID == nil && nowTime.Before(deadlines[i].Add(2*time.Second)) {
+		// Serve the next question based on strict deadline and whether it hasn't been answered/skipped yet
+		if d.AnsweredAt == nil && nowTime.Before(deadlines[i]) {
 			activeQuestion = &d.Question
 			break
 		}
@@ -259,26 +259,20 @@ func (r *attemptRepositoryImpl) SubmitAnswer(ctx context.Context, sessionId uuid
 			return errors.New("question not found in this attempt session")
 		}
 
-		if targetDetail.AnswerID != nil {
-			return errors.New("question has already been answered")
+		if targetDetail.AnsweredAt != nil {
+			return errors.New("question has already been answered or skipped")
 		}
 
-		// Check deadline for the target question (allowing 2-second grace period/tolerance)
+		// Check deadline for the target question (allowing 2-second grace period/tolerance for submit delay)
 		if nowTime.After(deadlines[targetIndex].Add(2 * time.Second)) {
 			return errors.New("time limit exceeded for this question")
 		}
 
-		// Verify prior questions: they must either be answered or expired (allowing 2-second grace period/tolerance)
+		// Verify prior questions: they must either be answered/skipped or strictly expired
 		for i := 0; i < targetIndex; i++ {
-			if allDetails[i].AnswerID == nil && nowTime.Before(deadlines[i].Add(2*time.Second)) {
+			if allDetails[i].AnsweredAt == nil && nowTime.Before(deadlines[i]) {
 				return errors.New("cannot answer this question yet; please answer prior active questions first")
 			}
-		}
-
-		// 3. Verify answer option and grade it
-		var answer entity.Answer
-		if err := tx.Where("id = ? AND question_id = ?", answerId, questionId).First(&answer).Error; err != nil {
-			return errors.New("invalid answer option for this question")
 		}
 
 		// Find correct answer id
@@ -287,11 +281,25 @@ func (r *attemptRepositoryImpl) SubmitAnswer(ctx context.Context, sessionId uuid
 			return errors.New("correct answer option not found for this question")
 		}
 		correctAnswerId = correctAnswer.ID
-		isCorrect = answer.IsCorrect
+
+		var isCorrectToScore *bool
+		if answerId != uuid.Nil {
+			// 3. Verify answer option and grade it
+			var answer entity.Answer
+			if err := tx.Where("id = ? AND question_id = ?", answerId, questionId).First(&answer).Error; err != nil {
+				return errors.New("invalid answer option for this question")
+			}
+			isCorrect = answer.IsCorrect
+			isCorrectToScore = &isCorrect
+			targetDetail.AnswerID = &answerId
+			targetDetail.IsCorrect = &isCorrect
+		} else {
+			// Skipped question
+			isCorrect = false
+			isCorrectToScore = nil
+		}
 
 		// 4. Update target detail
-		targetDetail.AnswerID = &answerId
-		targetDetail.IsCorrect = &isCorrect
 		targetDetail.AnsweredAt = &nowTime
 		if err := tx.Save(targetDetail).Error; err != nil {
 			return err
@@ -301,7 +309,7 @@ func (r *attemptRepositoryImpl) SubmitAnswer(ctx context.Context, sessionId uuid
 		hasActiveQuestions := false
 		tempDetails := make([]entity.AttemptDetail, len(allDetails))
 		copy(tempDetails, allDetails)
-		tempDetails[targetIndex].AnswerID = &answerId
+		tempDetails[targetIndex].AnswerID = targetDetail.AnswerID
 		tempDetails[targetIndex].AnsweredAt = &nowTime
 
 		tempDeadlines := make([]time.Time, len(tempDetails))
@@ -319,8 +327,8 @@ func (r *attemptRepositoryImpl) SubmitAnswer(ctx context.Context, sessionId uuid
 			}
 			tempDeadlines[i] = startTime.Add(time.Duration(d.Question.TimeLimit) * time.Second)
 
-			// Allow 2-second grace period/tolerance for network latency
-			if d.AnswerID == nil && nowTime.Before(tempDeadlines[i].Add(2*time.Second)) {
+			// Serve the next question based on strict deadline and whether it hasn't been answered/skipped
+			if d.AnsweredAt == nil && nowTime.Before(tempDeadlines[i]) {
 				hasActiveQuestions = true
 				break
 			}
@@ -346,7 +354,7 @@ func (r *attemptRepositoryImpl) SubmitAnswer(ctx context.Context, sessionId uuid
 			for _, d := range allDetails {
 				isCorrVal := d.IsCorrect
 				if d.QuestionID == questionId {
-					isCorrVal = &isCorrect
+					isCorrVal = isCorrectToScore
 				}
 
 				if isCorrVal != nil {

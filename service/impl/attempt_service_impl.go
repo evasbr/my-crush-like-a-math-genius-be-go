@@ -299,9 +299,14 @@ func (s *attemptServiceImpl) SubmitAnswer(ctx context.Context, request model.Sub
 	if err != nil {
 		return model.SubmitAnswerResponse{}, exception.ValidationError{Message: "invalid question ID format"}
 	}
-	parsedAnswerID, err := uuid.Parse(request.AnswerID)
-	if err != nil {
-		return model.SubmitAnswerResponse{}, exception.ValidationError{Message: "invalid answer ID format"}
+	var parsedAnswerID uuid.UUID
+	if request.AnswerID != "" {
+		parsedAnswerID, err = uuid.Parse(request.AnswerID)
+		if err != nil {
+			return model.SubmitAnswerResponse{}, exception.ValidationError{Message: "invalid answer ID format"}
+		}
+	} else {
+		parsedAnswerID = uuid.Nil
 	}
 	parsedUserID, err := uuid.Parse(userId)
 	if err != nil {
